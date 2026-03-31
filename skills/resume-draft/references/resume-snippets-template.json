@@ -1,0 +1,94 @@
+{
+  "resume_snippets": [
+    {
+      "id": "exp-001",
+      "category": "experience",
+      "title": "Backend Engineering Lead at TechCorp",
+      "text": "Led architecture and delivery of microservices platform using Python and AWS, reducing API latency by 40% and supporting 10M+ daily requests across 5 services."
+    },
+    {
+      "id": "exp-002",
+      "category": "experience",
+      "title": "Full Stack Engineer at StartupXYZ",
+      "text": "Built REST APIs with Django and React frontends, implemented automated testing (pytest, mocha), and deployed infrastructure using Docker and Kubernetes on AWS."
+    },
+    {
+      "id": "skill-python",
+      "category": "skills",
+      "title": "Python & Backend Development",
+      "text": "Expert in Python (8+ years), Django REST Framework, FastAPI, async programming (asyncio), and designing scalable backend systems for high-traffic applications."
+    },
+    {
+      "id": "skill-devops",
+      "category": "skills",
+      "title": "DevOps & Cloud Infrastructure",
+      "text": "Proficient in Docker, Kubernetes, AWS services (EC2, RDS, S3, Lambda), CI/CD pipelines (GitHub Actions, Jenkins), and infrastructure-as-code (Terraform)."
+    },
+    {
+      "id": "skill-frontend",
+      "category": "skills",
+      "title": "Frontend Development",
+      "text": "Strong experience with React, Vue.js, TypeScript, responsive design, and modern JavaScript (ES6+). Built responsive dashboards and real-time UIs."
+    },
+    {
+      "id": "skill-sql",
+      "category": "skills",
+      "title": "Databases & SQL",
+      "text": "Deep expertise in PostgreSQL, MySQL, MongoDB, query optimization, and designing scalable database schemas. Experience with Redis for caching and pub/sub."
+    },
+    {
+      "id": "achievement-001",
+      "category": "achievements",
+      "title": "Performance Optimization Project",
+      "text": "Redesigned database queries and added caching layer (Redis), reducing page load time from 3s to 400ms (87% improvement) and saving $50K/year in infrastructure costs."
+    },
+    {
+      "id": "achievement-002",
+      "category": "achievements",
+      "title": "Team Productivity Initiative",
+      "text": "Established automated testing and CI/CD pipeline, reducing deployment time from 2 hours to 15 minutes and cutting production bugs by 60% in 6 months."
+    },
+    {
+      "id": "achievement-003",
+      "category": "achievements",
+      "title": "Open Source Contributions",
+      "text": "Active contributor to FastAPI and Django projects with 500+ GitHub stars. Published 3 technical blog posts on microservices architecture reaching 50K+ views."
+    },
+    {
+      "id": "leadership-001",
+      "category": "leadership",
+      "title": "Team Lead & Mentoring",
+      "text": "Managed team of 5 engineers, conducted code reviews, mentored 3 junior developers (2 promoted within 18 months), and fostered agile/scrum practices."
+    },
+    {
+      "id": "leadership-002",
+      "category": "leadership",
+      "title": "Cross-functional Collaboration",
+      "text": "Partnered with product, design, and data teams to define technical requirements, resolve blockers, and deliver features on schedule for enterprise clients."
+    },
+    {
+      "id": "leadership-003",
+      "category": "leadership",
+      "title": "Architecture & Technical Strategy",
+      "text": "Designed system architecture for new product line supporting 100K+ concurrent users. Led migration from monolith to microservices (6-month project, on-time and on-budget)."
+    },
+    {
+      "id": "skill-ml",
+      "category": "skills",
+      "title": "Machine Learning & Data",
+      "text": "Familiar with Python ML libraries (scikit-learn, pandas, numpy), data pipelines, and basic ML model training. Experience with data analysis and visualization (matplotlib, seaborn)."
+    },
+    {
+      "id": "skill-security",
+      "category": "skills",
+      "title": "Security Best Practices",
+      "text": "Implemented OAuth 2.0 and JWT authentication, SQL injection prevention, API rate limiting, and security testing. Passed security audits for HIPAA and SOC 2 compliance."
+    },
+    {
+      "id": "experience-contract",
+      "category": "experience",
+      "title": "Consultant - Contract Work",
+      "text": "Worked with 3+ clients on short-term projects: migrating legacy systems to cloud, building REST APIs, and implementing automated deployment pipelines using GitHub Actions."
+    }
+  ]
+}

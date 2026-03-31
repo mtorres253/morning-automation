@@ -26,27 +26,75 @@ def read_file(filepath):
         sys.exit(1)
 
 
-def parse_sections(content):
+def extract_header(resume_content):
     """
-    Parse markdown content into sections.
-    Returns dict: {section_name: content}
+    Extract name and contact info from resume.
+    Returns the first few lines before first ## section.
     """
-    sections = defaultdict(str)
-    current_section = "intro"
-    lines = content.split('\n')
-    
+    lines = resume_content.split('\n')
+    header_lines = []
     for line in lines:
-        # Match heading levels 1-3
-        if line.startswith('# ') and not line.startswith('# #'):
-            current_section = line.lstrip('#').strip().lower()
-        elif line.startswith('## '):
-            current_section = line.lstrip('#').strip().lower()
-        elif line.startswith('### '):
-            current_section = line.lstrip('#').strip().lower()
-        
-        sections[current_section] += line + '\n'
+        if line.startswith('##'):
+            break
+        header_lines.append(line)
+    return '\n'.join(header_lines).strip()
+
+
+def extract_summaries(resume_content):
+    """
+    Extract all summary paragraphs with their content.
+    Returns list of (summary_title, summary_text) tuples.
+    """
+    # Find section: "## Summary / Intro Paragraph Variations"
+    match = re.search(
+        r'## Summary.*?Variations\n(.*?)(?=^## |\Z)',
+        resume_content,
+        re.MULTILINE | re.DOTALL
+    )
+    if not match:
+        return []
     
-    return sections
+    summaries_text = match.group(1)
+    # Split by bold headings like **General product leader — ...**
+    parts = re.split(r'\*\*(.+?)\*\*', summaries_text)
+    
+    summaries = []
+    for i in range(1, len(parts), 2):
+        title = parts[i].strip()
+        content = parts[i+1].strip() if i+1 < len(parts) else ""
+        # Extract just the summary text (before the asterisks)
+        content = re.sub(r'\*\(.+?\)\*', '', content).strip()
+        if content:
+            summaries.append((title, content))
+    
+    return summaries
+
+
+def extract_skills(resume_content):
+    """
+    Extract all skills variations.
+    Returns list of (skills_title, skills_text) tuples.
+    """
+    match = re.search(
+        r'## Skills.*?Variations\n(.*?)(?=^## |\Z)',
+        resume_content,
+        re.MULTILINE | re.DOTALL
+    )
+    if not match:
+        return []
+    
+    skills_text = match.group(1)
+    parts = re.split(r'\*\*(.+?)\*\*', skills_text)
+    
+    skills = []
+    for i in range(1, len(parts), 2):
+        title = parts[i].strip()
+        content = parts[i+1].strip() if i+1 < len(parts) else ""
+        content = re.sub(r'\*\(.+?\)\*', '', content).strip()
+        if content:
+            skills.append((title, content))
+    
+    return skills
 
 
 def extract_keywords(job_description):
@@ -54,7 +102,6 @@ def extract_keywords(job_description):
     Extract key skills, technologies, and concepts from job description.
     Returns set of keywords (lowercased).
     """
-    # Remove common non-meaningful words
     stopwords = {
         'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
         'of', 'with', 'by', 'from', 'as', 'is', 'be', 'have', 'has', 'are',
@@ -62,10 +109,8 @@ def extract_keywords(job_description):
         'can', 'could', 'this', 'that', 'these', 'those', 'about', 'through'
     }
     
-    # Split into words and phrases
     words = re.findall(r'\b[a-z0-9+#./-]+\b', job_description.lower())
     
-    # Filter: keep words 3+ chars or common tech terms
     keywords = set()
     for word in words:
         if len(word) >= 3 and word not in stopwords:
@@ -91,63 +136,135 @@ def score_content_relevance(content, keywords):
 def extract_work_experience(resume_content):
     """
     Extract individual work experiences from resume.
-    Returns list of (title, content) tuples.
+    Returns list of (title, header_info, bullets_only) tuples.
     """
     experiences = []
     lines = resume_content.split('\n')
     current_exp = None
-    current_content = []
+    current_header_lines = []
+    current_bullets = []
     
-    for line in lines:
+    for i, line in enumerate(lines):
         # Look for role titles (### Role — Company)
         if line.startswith('### ') and ' — ' in line:
             if current_exp:
-                experiences.append((current_exp, '\n'.join(current_content)))
+                # Save previous experience
+                full_content = '\n'.join(current_header_lines) + '\n' + '\n'.join(current_bullets)
+                experiences.append((current_exp, full_content, current_bullets))
+            
             current_exp = line.lstrip('### ').strip()
-            current_content = [line]
+            current_header_lines = [line]
+            current_bullets = []
         elif current_exp:
-            current_content.append(line)
+            if line.startswith('- ') or line.startswith('* '):
+                # This is a bullet point
+                current_bullets.append(line)
+            elif line.strip() == '':
+                # Blank line between header and bullets or between bullets
+                if current_bullets:
+                    # We've started bullets, blank lines between them are OK
+                    pass
+                elif current_header_lines:
+                    # Still in header section
+                    pass
+            elif not line.startswith('#'):
+                # Non-bullet, non-heading line (like date line *...)
+                if not current_bullets:
+                    # Still in header section
+                    current_header_lines.append(line)
     
+    # Don't forget the last experience
     if current_exp:
-        experiences.append((current_exp, '\n'.join(current_content)))
+        full_content = '\n'.join(current_header_lines) + '\n' + '\n'.join(current_bullets)
+        experiences.append((current_exp, full_content, current_bullets))
     
     return experiences
 
 
+def trim_bullets(bullets, max_count=6):
+    """Keep only the most relevant bullets (up to max_count)."""
+    return bullets[:max_count]
+
+
 def create_draft_resume(resume_content, job_description, output_file=None):
     """
-    Create a draft resume tailored to job description.
-    Uses only original content from resume.
+    Create a refined draft resume.
+    Structure: Header → Summary → Skills → Work History (top 6 bullets each)
     """
     keywords = extract_keywords(job_description)
     
-    # Extract intro/header
-    intro_match = re.search(r'^(?:# .+\n)+(.+?)(?:^##|\Z)', resume_content, re.MULTILINE)
-    header = intro_match.group(0) if intro_match else ""
-    
-    # Extract work experiences
-    experiences = extract_work_experience(resume_content)
-    
-    # Score and sort experiences by relevance
-    scored_exp = [
-        (exp_title, exp_content, score_content_relevance(exp_content, keywords))
-        for exp_title, exp_content in experiences
-    ]
-    scored_exp.sort(key=lambda x: x[2], reverse=True)
-    
-    # Build draft resume
+    # 1. Extract and include header
+    header = extract_header(resume_content)
     draft = header + "\n\n"
-    draft += "## Work History (Ordered by Relevance)\n\n"
     
-    for exp_title, exp_content, score in scored_exp:
-        draft += exp_content + "\n\n"
+    # 2. Find and include best summary
+    summaries = extract_summaries(resume_content)
+    if summaries:
+        summary_scores = [
+            (title, text, score_content_relevance(title + ' ' + text, keywords))
+            for title, text in summaries
+        ]
+        summary_scores.sort(key=lambda x: x[2], reverse=True)
+        best_title, best_text, score = summary_scores[0]
+        draft += f"## Summary\n\n{best_text}\n\n"
     
-    # Add other sections (Skills, Education, etc.) if they exist
-    sections = parse_sections(resume_content)
-    for section_name, section_content in sections.items():
-        if section_name not in ['intro', 'work history', 'employment']:
-            draft += f"\n## {section_name.title()}\n\n"
-            draft += section_content + "\n"
+    # 3. Find and include best skills
+    skills_list = extract_skills(resume_content)
+    if skills_list:
+        skills_scores = [
+            (title, text, score_content_relevance(title + ' ' + text, keywords))
+            for title, text in skills_list
+        ]
+        skills_scores.sort(key=lambda x: x[2], reverse=True)
+        best_title, best_text, score = skills_scores[0]
+        draft += f"## Skills\n\n{best_text}\n\n"
+    
+    # 4. Extract and score work experiences
+    experiences = extract_work_experience(resume_content)
+    scored_exp = [
+        (exp_title, exp_content, bullets, score_content_relevance(exp_content, keywords))
+        for exp_title, exp_content, bullets in experiences
+    ]
+    scored_exp.sort(key=lambda x: x[3], reverse=True)
+    
+    # 5. Build work history with top bullets only
+    draft += "## Work History\n\n"
+    for exp_title, exp_content, bullets, score in scored_exp:
+        # Extract header lines: role title and dates
+        lines = exp_content.split('\n')
+        header_lines = [lines[0]]  # Role line (### Role — Company)
+        for i in range(1, len(lines)):
+            if lines[i].startswith('*'):
+                header_lines.append(lines[i])  # Date line (*dates*)
+                break
+        
+        # Get only the first max_count bullets
+        trimmed_bullets = trim_bullets(bullets, max_count=6)
+        
+        # Write the section
+        draft += '\n'.join(header_lines) + '\n'
+        draft += '\n'.join(trimmed_bullets) + '\n\n'
+    
+    # 6. Add education and certifications if present
+    if 'Education' in resume_content:
+        edu_match = re.search(
+            r'## Education\n(.*?)(?=^## |\Z)',
+            resume_content,
+            re.MULTILINE | re.DOTALL
+        )
+        if edu_match:
+            draft += "## Education\n\n"
+            draft += edu_match.group(1).strip() + "\n\n"
+    
+    if 'Certifications' in resume_content:
+        cert_match = re.search(
+            r'## Certifications\n(.*?)(?=^## |\Z)',
+            resume_content,
+            re.MULTILINE | re.DOTALL
+        )
+        if cert_match:
+            draft += "## Certifications\n\n"
+            draft += cert_match.group(1).strip() + "\n\n"
     
     if output_file:
         with open(output_file, 'w') as f:
@@ -221,7 +338,7 @@ def main():
     
     print(f"\n✓ Matching complete!")
     print(f"  - Keywords extracted: {len(extract_keywords(job_description))} total")
-    print(f"  - Resume experiences scored: {len(resume_content.count('###'))} total")
+    print(f"  - Work experiences evaluated and ranked")
 
 
 if __name__ == "__main__":

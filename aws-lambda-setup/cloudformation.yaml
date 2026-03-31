@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Morning Automation Lambda functions'
+
+Parameters:
+  GmailEmail:
+    Type: String
+    Default: mtorres253@gmail.com
+    Description: Email address for sending and receiving
+  
+  JournalBucketName:
+    Type: String
+    Default: michael-journal-entries
+    Description: S3 bucket name for journal entries
+
+Resources:
+  # S3 Bucket for journal entries
+  JournalBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref JournalBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: lambda-morning-automation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Inline policy for S3, SES access
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: lambda-morning-automation-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !GetAtt JournalBucket.Arn
+              - !Sub '${JournalBucket.Arn}/*'
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+      Roles:
+        - !Ref LambdaExecutionRole
+
+  # EventBridge Rule for 9 AM PT
+  MorningEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: morning-automation-rule
+      Description: Trigger Lambda functions at 9 AM PT daily
+      ScheduleExpression: 'cron(0 16 * * ? *)'  # 4 PM UTC (9 AM PT)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt MorningJournalFunction.Arn
+          Id: MorningJournalTarget
+          RoleArn: !GetAtt EventBridgeRole.Arn
+        - Arn: !GetAtt JobSearchFunction.Arn
+          Id: JobSearchTarget
+          RoleArn: !GetAtt EventBridgeRole.Arn
+        - Arn: !GetAtt GmailDigestFunction.Arn
+          Id: GmailDigestTarget
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  # IAM Role for EventBridge
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: eventbridge-lambda-invocation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt MorningJournalFunction.Arn
+                  - !GetAtt JobSearchFunction.Arn
+                  - !GetAtt GmailDigestFunction.Arn
+
+  # Lambda Functions
+  MorningJournalFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: morning-journal-lambda
+      Runtime: python3.11
+      Handler: morning_journal_lambda.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          GMAIL_EMAIL: !Ref GmailEmail
+          SES_EMAIL: !Ref GmailEmail
+          S3_BUCKET: !Ref JournalBucketName
+      Code:
+        ZipFile: |
+          # Placeholder - use deploy.py script or manual upload
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Placeholder'}
+
+  JobSearchFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: job-search-lambda
+      Runtime: python3.11
+      Handler: job_search_lambda.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          GMAIL_EMAIL: !Ref GmailEmail
+          SES_EMAIL: !Ref GmailEmail
+      Code:
+        ZipFile: |
+          # Placeholder - use deploy.py script or manual upload
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Placeholder'}
+
+  GmailDigestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: gmail-digest-lambda
+      Runtime: python3.11
+      Handler: gmail_digest_lambda.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          GMAIL_EMAIL: !Ref GmailEmail
+          SES_EMAIL: !Ref GmailEmail
+      Code:
+        ZipFile: |
+          # Placeholder - use deploy.py script or manual upload
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Placeholder'}
+
+  # Lambda Permissions for EventBridge
+  MorningJournalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MorningJournalFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MorningEventRule.Arn
+
+  JobSearchPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref JobSearchFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MorningEventRule.Arn
+
+  GmailDigestPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GmailDigestFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MorningEventRule.Arn
+
+Outputs:
+  LambdaExecutionRoleArn:
+    Description: IAM role ARN for Lambda execution
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: LambdaExecutionRoleArn
+
+  JournalBucketName:
+    Description: S3 bucket for journal entries
+    Value: !Ref JournalBucket
+    Export:
+      Name: JournalBucketName
+
+  MorningJournalFunctionArn:
+    Description: Morning Journal Lambda function ARN
+    Value: !GetAtt MorningJournalFunction.Arn
+    Export:
+      Name: MorningJournalFunctionArn
+
+  JobSearchFunctionArn:
+    Description: Job Search Lambda function ARN
+    Value: !GetAtt JobSearchFunction.Arn
+    Export:
+      Name: JobSearchFunctionArn
+
+  GmailDigestFunctionArn:
+    Description: Gmail Digest Lambda function ARN
+    Value: !GetAtt GmailDigestFunction.Arn
+    Export:
+      Name: GmailDigestFunctionArn
+
+  EventRuleArn:
+    Description: EventBridge rule for 9 AM PT daily trigger
+    Value: !GetAtt MorningEventRule.Arn
+    Export:
+      Name: MorningEventRuleArn

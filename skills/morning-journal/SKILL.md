@@ -23,6 +23,28 @@ CIVIC_URL="..." CIVIC_TOKEN="..." npx tsx civic-tool-runner.ts --call <tool> --a
 
 Load credentials from the secrets file — do not hardcode them.
 
+## Redis Caching
+
+Journal entries, action items, and past responses are cached in Redis (24h TTL for entries, 7d for response history). This speeds up future prompts and reduces Google Docs API calls.
+
+**Setup:**
+```bash
+# Install Redis
+brew install redis
+
+# Start Redis
+redis-server
+
+# Test the cache
+python3 skills/morning-journal/scripts/redis_cache.py
+```
+
+**How it works:**
+- After appending an entry to Google Docs, cache it immediately
+- Next session can fetch recent entries from Redis without hitting Docs API
+- Action items cached separately for fast retrieval
+- Cache expires after 24h (entries) or 7d (history) — always fresh data
+
 ## State File
 
 `skills/morning-journal/state.json` stores the Google Doc ID:
