@@ -70,29 +70,30 @@ def extract_summaries(resume_content):
     return summaries
 
 
-def extract_skills(resume_content):
+def extract_all_skills(resume_content):
     """
-    Extract all skills variations.
-    Returns list of (skills_title, skills_text) tuples.
+    Extract the master skills list from resume.
+    Returns a list of individual skill strings.
     """
+    # Find section: "## Skills and Capabilities List"
+    # Pattern: find the section header, then content until next ## heading
     match = re.search(
-        r'## Skills.*?Variations\n(.*?)(?=^## |\Z)',
+        r'## Skills and Capabilities List.*?\n(.*?)(?=^## |\Z)',
         resume_content,
         re.MULTILINE | re.DOTALL
     )
     if not match:
         return []
     
-    skills_text = match.group(1)
-    parts = re.split(r'\*\*(.+?)\*\*', skills_text)
+    skills_text = match.group(1).strip()
+    # Remove separator lines (---)
+    lines = [line for line in skills_text.split('\n') if line.strip() and line.strip() != '---']
+    full_text = ' '.join(lines)
     
-    skills = []
-    for i in range(1, len(parts), 2):
-        title = parts[i].strip()
-        content = parts[i+1].strip() if i+1 < len(parts) else ""
-        content = re.sub(r'\*\(.+?\)\*', '', content).strip()
-        if content:
-            skills.append((title, content))
+    # Split by comma and clean up each skill
+    raw_skills = [s.strip() for s in full_text.split(',')]
+    # Remove empty strings
+    skills = [s for s in raw_skills if s]
     
     return skills
 
@@ -208,16 +209,21 @@ def create_draft_resume(resume_content, job_description, output_file=None):
         best_title, best_text, score = summary_scores[0]
         draft += f"## Summary\n\n{best_text}\n\n"
     
-    # 3. Find and include best skills
-    skills_list = extract_skills(resume_content)
-    if skills_list:
-        skills_scores = [
-            (title, text, score_content_relevance(title + ' ' + text, keywords))
-            for title, text in skills_list
+    # 3. Build custom skills list (top 20-25 most relevant from inventory)
+    all_skills = extract_all_skills(resume_content)
+    if all_skills:
+        # Score each skill based on keyword overlap
+        skill_scores = [
+            (skill, score_content_relevance(skill, keywords))
+            for skill in all_skills
         ]
-        skills_scores.sort(key=lambda x: x[2], reverse=True)
-        best_title, best_text, score = skills_scores[0]
-        draft += f"## Skills\n\n{best_text}\n\n"
+        # Sort by relevance and take top 20-25
+        skill_scores.sort(key=lambda x: x[1], reverse=True)
+        top_skills = [skill for skill, score in skill_scores[:25] if skill.strip() and skill != '---']
+        
+        # Format as comma-separated list
+        skills_text = ", ".join(top_skills)
+        draft += f"## Skills\n\n{skills_text}\n\n"
     
     # 4. Extract and score work experiences
     experiences = extract_work_experience(resume_content)
