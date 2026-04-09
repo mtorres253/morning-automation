@@ -74,7 +74,19 @@ python3 scripts/filter_and_deliver.py
 - Sends via Gmail (or configured SMTP)
 - Saves filtered results for history
 
-### Email Setup
+### Professional Materials
+
+Your resumes and cover letters are stored in `/assets/job-search/`:
+
+- `assets/job-search/resumes.md` — Your resume(s), formatted and ready to tailor
+- `assets/job-search/cover_letters.md` — Your cover letter templates
+
+When applying to jobs, the skill can reference these files to:
+- Tailor cover letters for specific roles
+- Extract relevant experience for custom applications
+- Maintain consistency across all applications
+
+## Email Setup
 
 Before running, configure email delivery:
 

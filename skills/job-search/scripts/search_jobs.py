@@ -5,6 +5,7 @@ Returns deduplicated results as JSON.
 """
 
 import json
+import os
 import re
 import time
 from datetime import datetime, timedelta
@@ -13,13 +14,20 @@ from typing import List, Dict, Any
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
+import xml.etree.ElementTree as ET
 
 # Load config
 CONFIG_PATH = Path(__file__).parent.parent / "job-search-config.json"
 with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
 
-RESULTS_DIR = Path(__file__).parent.parent / "results"
+# Use /tmp for Lambda compatibility (read-only filesystem in Lambda)
+# Fall back to local results dir if not in Lambda
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    RESULTS_DIR = Path("/tmp") / "job-search-results"
+else:
+    RESULTS_DIR = Path(__file__).parent.parent / "results"
+    
 RESULTS_DIR.mkdir(exist_ok=True)
 
 # User agent to avoid blocking
@@ -27,147 +35,200 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
-def search_indeed() -> List[Dict[str, Any]]:
-    """Search Indeed using their job search URL."""
+
+
+def search_ycombinator() -> tuple[List[Dict[str, Any]], str]:
+    """
+    Search Y Combinator Jobs for startup jobs.
+    Focuses on startup-funded companies, including civic tech, gov tech, etc.
+    Returns (jobs_list, status_message)
+    """
     jobs = []
+    status = ""
     search_params = config["searches"][0]
     
-    # Build Indeed search query with multiple keywords
-    keywords_list = search_params["keywords"]
-    location = "San Francisco, CA"  # Primary search location
-    
-    print(f"  Searching Indeed for: {', '.join(keywords_list[:2])}...")
-    
-    for keyword in keywords_list[:3]:  # Limit queries to avoid rate limiting
-        try:
-            # Indeed search URL with filters
-            params = {
-                "q": keyword,
-                "l": location,
-                "jt": "fulltime",
-                "salary": f"${search_params['salaryMin']}-${search_params['salaryMax']}"
-            }
-            
-            url = "https://www.indeed.com/jobs?" + urllib.parse.urlencode(params)
-            response = requests.get(url, headers=HEADERS, timeout=15)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, "html.parser")
-            
-            # Indeed job listings have changed structure, try multiple selectors
-            job_cards = soup.find_all("div", {"data-jk": True})
-            
-            if not job_cards:
-                # Try alternate selector
-                job_cards = soup.find_all("div", class_=re.compile("job_seen_beacon|jobsearch-SerpJobCard"))
-            
-            for i, card in enumerate(job_cards[:5]):  # First 5 jobs per keyword
-                try:
-                    job_key = card.get("data-jk")
-                    if not job_key:
-                        continue
-                    
-                    # Extract job details
-                    title_elem = card.find("h2", class_="jobTitle")
-                    company_elem = card.find("span", class_="companyName")
-                    location_elem = card.find("div", class_="companyLocation")
-                    snippet = card.find("div", class_=re.compile("job-snippet|jobsearch"))
-                    
-                    title = title_elem.get_text(strip=True) if title_elem else "Unknown"
-                    company = company_elem.get_text(strip=True) if company_elem else "Unknown"
-                    job_location = location_elem.get_text(strip=True) if location_elem else location
-                    job_snippet = snippet.get_text(strip=True) if snippet else ""
-                    
-                    # Filter by salary range (rough check)
-                    if "200" not in job_snippet and "220" not in job_snippet and "250" not in job_snippet:
-                        if search_params['salaryMin'] > 150000:  # Skip if expecting high salary and not mentioned
-                            continue
-                    
-                    job = {
-                        "source": "indeed",
-                        "jobId": f"indeed_{job_key}",
-                        "title": title,
-                        "company": company,
-                        "location": job_location,
-                        "salary": "Not specified",
-                        "snippet": job_snippet[:200],
-                        "url": f"https://www.indeed.com/viewjob?jk={job_key}",
-                        "scrapedAt": datetime.utcnow().isoformat()
-                    }
-                    jobs.append(job)
-                except Exception as e:
-                    continue
-            
-            time.sleep(2)  # Rate limiting between requests
+    try:
+        print("  Searching Y Combinator Jobs (Startup jobs - civic tech, etc)...")
         
-        except Exception as e:
-            print(f"  Error querying Indeed for '{keyword}': {e}")
-            continue
+        # Build search keywords
+        keywords = search_params["keywords"][:2]  # Use first 2 keywords
+        
+        # Y Combinator Jobs RSS feed
+        url = "https://ycombinator.com/jobs/rss"
+        
+        response = requests.get(url, headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        
+        # Parse RSS feed
+        root = ET.fromstring(response.content)
+        
+        # Extract items from RSS
+        items = root.findall(".//item")
+        
+        for item in items[:20]:  # Limit to 20 results
+            try:
+                title_elem = item.find("title")
+                description_elem = item.find("description")
+                link_elem = item.find("link")
+                
+                if title_elem is None:
+                    continue
+                
+                title = title_elem.text or "Unknown"
+                description = description_elem.text if description_elem is not None else ""
+                link = link_elem.text if link_elem is not None else ""
+                
+                # Extract company name from title (format: "Company Name - Job Title")
+                if " - " in title:
+                    company, job_title = title.split(" - ", 1)
+                else:
+                    company = "Unknown"
+                    job_title = title
+                
+                # Filter by keywords (loose match)
+                title_lower = job_title.lower()
+                matches_keywords = any(kw.lower() in title_lower for kw in keywords)
+                
+                if not matches_keywords:
+                    continue  # Skip jobs that don't match keywords
+                
+                job_obj = {
+                    "source": "ycombinator",
+                    "jobId": f"yc_{hash(title + company) % 999999}",
+                    "title": job_title,
+                    "company": company,
+                    "location": "Remote or On-site",
+                    "salary": "Not specified",
+                    "snippet": description[:200],
+                    "url": link,
+                    "scrapedAt": datetime.utcnow().isoformat()
+                }
+                jobs.append(job_obj)
+            except Exception as e:
+                continue
+        
+        status = f"✓ Y Combinator: Found {len(jobs)} jobs"
+        print(f"  {status}")
+        
+    except requests.exceptions.HTTPError as e:
+        status = f"✗ Y Combinator: HTTP {e.response.status_code}"
+        print(f"  {status}")
+    except requests.exceptions.Timeout:
+        status = "✗ Y Combinator: Request timeout"
+        print(f"  {status}")
+    except requests.exceptions.ConnectionError:
+        status = "✗ Y Combinator: Connection error"
+        print(f"  {status}")
+    except Exception as e:
+        status = f"✗ Y Combinator: {type(e).__name__}"
+        print(f"  {status}")
     
-    return jobs
+    return jobs, status
 
-def search_builtin_sample() -> List[Dict[str, Any]]:
+
+def search_jsearch() -> tuple[List[Dict[str, Any]], str]:
     """
-    Return sample jobs that match criteria for testing.
-    This is a placeholder until we have better APIs configured.
+    Search JSearch API (OpenWeb Ninja) for job listings.
+    Indexes LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google for Jobs, and more.
+    Returns (jobs_list, status_message)
     """
-    return [
-        {
-            "source": "sample",
-            "jobId": "sample_1",
-            "title": "Director of Product",
-            "company": "Skydio",
-            "location": "San Francisco, CA (Hybrid)",
-            "salary": "$230K - $250K",
-            "snippet": "Leading product strategy for autonomous drone platform. Strong background in hardware/software integration required.",
-            "url": "https://www.skydio.com/careers",
-            "scrapedAt": datetime.utcnow().isoformat()
-        },
-        {
-            "source": "sample",
-            "jobId": "sample_2",
-            "title": "Principal Product Manager",
-            "company": "Code for America",
-            "location": "Remote",
-            "salary": "$220K - $245K",
-            "snippet": "Shape the future of civic technology. Lead product development for government modernization platform.",
-            "url": "https://www.codeforamerica.org/careers",
-            "scrapedAt": datetime.utcnow().isoformat()
-        },
-        {
-            "source": "sample",
-            "jobId": "sample_3",
-            "title": "Chief of Staff, Product",
-            "company": "Lime (Mobility)",
-            "location": "San Francisco, CA",
-            "salary": "$210K - $240K",
-            "snippet": "Join Lime's product leadership team. Help scale micromobility across North America with focus on operations and strategy.",
-            "url": "https://www.li.me/careers",
-            "scrapedAt": datetime.utcnow().isoformat()
-        },
-        {
-            "source": "sample",
-            "jobId": "sample_4",
-            "title": "Director of Product - Healthcare",
-            "company": "Ro",
-            "location": "New York, NY (Remote OK)",
-            "salary": "$225K - $250K",
-            "snippet": "Lead product innovation in digital healthcare. Building telehealth solutions that transform patient access.",
-            "url": "https://www.ro.com/careers",
-            "scrapedAt": datetime.utcnow().isoformat()
-        },
-        {
-            "source": "sample",
-            "jobId": "sample_5",
-            "title": "Product Operations Director",
-            "company": "Stripe (Fintech)",
-            "location": "San Francisco, CA (Hybrid)",
-            "salary": "$240K - $250K",
-            "snippet": "Oversee product operations for financial infrastructure platform. Drive efficiency and scale across product teams.",
-            "url": "https://stripe.com/jobs",
-            "scrapedAt": datetime.utcnow().isoformat()
+    jobs = []
+    status = ""
+    search_params = config["searches"][0]
+    
+    try:
+        # Load JSearch credentials
+        secrets_path = Path.home() / ".openclaw" / "secrets" / "jsearch_credentials.json"
+        if not secrets_path.exists():
+            status = "⚠️  JSearch: Credentials not found"
+            print(f"  {status}")
+            return jobs, status
+        
+        with open(secrets_path, "r") as f:
+            jsearch_creds = json.load(f)
+        
+        api_key = jsearch_creds.get("api_key")
+        api_host = jsearch_creds.get("api_host", "jsearch.p.rapidapi.com")
+        api_url = jsearch_creds.get("api_url", "https://jsearch.p.rapidapi.com/search")
+        
+        if not api_key:
+            status = "⚠️  JSearch: API key not configured"
+            print(f"  {status}")
+            return jobs, status
+        
+        print("  Searching JSearch (LinkedIn, Indeed, Glassdoor, ZipRecruiter, etc)...")
+        
+        # Build JSearch query
+        keywords = " ".join(search_params["keywords"][:2])  # Use first 2 keywords
+        location = search_params["locations"][0].split(",")[0]  # City name only
+        
+        params = {
+            "query": keywords,
+            "location": location,
+            "page": "1",
+            "num_pages": "1",
+            "date_posted": "week",  # Options: anytime, today, 3days, week, month
+            "employment_type": "FULLTIME",
+            "country": "US"
         }
-    ]
+        
+        headers = {
+            "X-RapidAPI-Key": api_key,
+            "X-RapidAPI-Host": api_host
+        }
+        
+        response = requests.get(api_url, headers=headers, params=params, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        job_list = data.get("data", [])
+        
+        for job in job_list[:15]:  # Limit to 15 results
+            try:
+                # Extract salary range if available
+                salary_str = "Not specified"
+                salary_min = job.get("job_salary_min")
+                salary_max = job.get("job_salary_max")
+                
+                if salary_min and salary_max:
+                    salary_str = f"${salary_min:,} - ${salary_max:,}"
+                elif salary_min:
+                    salary_str = f"${salary_min:,}+"
+                elif salary_max:
+                    salary_str = f"Up to ${salary_max:,}"
+                
+                job_obj = {
+                    "source": "jsearch",
+                    "jobId": f"jsearch_{job.get('job_id', '')}",
+                    "title": job.get("job_title", "Unknown"),
+                    "company": job.get("employer_name", "Unknown"),
+                    "location": job.get("job_location", location),
+                    "salary": salary_str,
+                    "snippet": job.get("job_description", "")[:200],
+                    "url": job.get("job_apply_link", ""),
+                    "scrapedAt": datetime.utcnow().isoformat()
+                }
+                jobs.append(job_obj)
+            except Exception as e:
+                continue
+        
+        status = f"✓ JSearch: Found {len(jobs)} jobs"
+        print(f"  {status}")
+        
+    except requests.exceptions.Timeout:
+        status = "✗ JSearch: Request timeout (API may be slow)"
+        print(f"  {status}")
+    except requests.exceptions.ConnectionError:
+        status = "✗ JSearch: Connection error (check internet)"
+        print(f"  {status}")
+    except json.JSONDecodeError:
+        status = "✗ JSearch: Invalid API response"
+        print(f"  {status}")
+    except Exception as e:
+        status = f"✗ JSearch: {type(e).__name__}: {str(e)[:80]}"
+        print(f"  {status}")
+    
+    return jobs, status
 
 def deduplicate_jobs(all_jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Remove duplicate jobs across sources."""
@@ -190,21 +251,23 @@ def main():
     print()
     
     all_jobs = []
+    search_status = []  # Track which searches succeeded/failed
     
-    # Run Indeed search
-    print("Searching Indeed...")
-    indeed_jobs = search_indeed()
-    all_jobs.extend(indeed_jobs)
+    # Y Combinator Jobs search disabled (RSS endpoint not currently available)
+    # Will revisit in future if needed
+    # yc_jobs, yc_status = search_ycombinator()
+    # all_jobs.extend(yc_jobs)
+    # search_status.append(yc_status)
     
-    # If Indeed returned few results, supplement with sample data for testing
-    if len(all_jobs) < 3:
-        print("⚠️  Limited Indeed results. Adding sample jobs for testing...")
-        all_jobs.extend(search_builtin_sample())
+    # Run JSearch (LinkedIn, Indeed, Glassdoor, ZipRecruiter, etc)
+    jsearch_jobs, jsearch_status = search_jsearch()
+    all_jobs.extend(jsearch_jobs)
+    search_status.append(jsearch_status)
     
     # Deduplicate
     jobs = deduplicate_jobs(all_jobs)
     
-    # Save results
+    # Save results with status info
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = RESULTS_DIR / f"raw_results_{timestamp}.json"
     
@@ -212,10 +275,16 @@ def main():
         json.dump({
             "searchedAt": datetime.utcnow().isoformat(),
             "totalFound": len(jobs),
+            "searchStatus": search_status,  # Include search success/failure info
             "jobs": jobs
         }, f, indent=2)
     
-    print(f"\n✓ Search complete: {len(jobs)} jobs found")
+    print(f"\n{'='*50}")
+    print(f"Search Summary:")
+    print(f"  Total jobs found: {len(jobs)}")
+    for status in search_status:
+        print(f"  {status}")
+    print(f"{'='*50}")
     print(f"📁 Saved to: {output_file}")
     
     return output_file

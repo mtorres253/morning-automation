@@ -1,0 +1,61 @@
+{
+  "searchedAt": "2026-04-04T16:10:17.759590",
+  "totalFound": 5,
+  "jobs": [
+    {
+      "source": "sample",
+      "jobId": "sample_1",
+      "title": "Director of Product",
+      "company": "Skydio",
+      "location": "San Francisco, CA (Hybrid)",
+      "salary": "$230K - $250K",
+      "snippet": "Leading product strategy for autonomous drone platform. Strong background in hardware/software integration required.",
+      "url": "https://www.skydio.com/careers",
+      "scrapedAt": "2026-04-04T16:10:17.758768"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_2",
+      "title": "Principal Product Manager",
+      "company": "Code for America",
+      "location": "Remote",
+      "salary": "$220K - $245K",
+      "snippet": "Shape the future of civic technology. Lead product development for government modernization platform.",
+      "url": "https://www.codeforamerica.org/careers",
+      "scrapedAt": "2026-04-04T16:10:17.758816"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_3",
+      "title": "Chief of Staff, Product",
+      "company": "Lime (Mobility)",
+      "location": "San Francisco, CA",
+      "salary": "$210K - $240K",
+      "snippet": "Join Lime's product leadership team. Help scale micromobility across North America with focus on operations and strategy.",
+      "url": "https://www.li.me/careers",
+      "scrapedAt": "2026-04-04T16:10:17.758826"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_4",
+      "title": "Director of Product - Healthcare",
+      "company": "Ro",
+      "location": "New York, NY (Remote OK)",
+      "salary": "$225K - $250K",
+      "snippet": "Lead product innovation in digital healthcare. Building telehealth solutions that transform patient access.",
+      "url": "https://www.ro.com/careers",
+      "scrapedAt": "2026-04-04T16:10:17.758833"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_5",
+      "title": "Product Operations Director",
+      "company": "Stripe (Fintech)",
+      "location": "San Francisco, CA (Hybrid)",
+      "salary": "$240K - $250K",
+      "snippet": "Oversee product operations for financial infrastructure platform. Drive efficiency and scale across product teams.",
+      "url": "https://stripe.com/jobs",
+      "scrapedAt": "2026-04-04T16:10:17.758840"
+    }
+  ]
+}

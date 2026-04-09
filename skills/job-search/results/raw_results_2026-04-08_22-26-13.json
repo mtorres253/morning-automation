@@ -1,0 +1,43 @@
+{
+  "searchedAt": "2026-04-08T22:26:13.087772",
+  "totalFound": 3,
+  "searchStatus": [
+    "\u2717 Indeed: No jobs found (selectors may be outdated)",
+    "\u26a0\ufe0f  Fallback: Using sample jobs (3). Real API not yet configured."
+  ],
+  "jobs": [
+    {
+      "source": "sample",
+      "jobId": "sample_1",
+      "title": "Director of Product",
+      "company": "Skydio",
+      "location": "San Francisco, CA (Hybrid)",
+      "salary": "$230K - $250K",
+      "snippet": "Leading product strategy for autonomous drone platform. Strong background in hardware/software integration required.",
+      "url": "https://www.skydio.com/careers",
+      "scrapedAt": "2026-04-08T22:26:13.087473"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_2",
+      "title": "Principal Product Manager",
+      "company": "Code for America",
+      "location": "Remote",
+      "salary": "$220K - $245K",
+      "snippet": "Shape the future of civic technology. Lead product development for government modernization platform.",
+      "url": "https://www.codeforamerica.org/careers",
+      "scrapedAt": "2026-04-08T22:26:13.087491"
+    },
+    {
+      "source": "sample",
+      "jobId": "sample_3",
+      "title": "Chief of Staff, Product",
+      "company": "Lime (Mobility)",
+      "location": "San Francisco, CA",
+      "salary": "$210K - $240K",
+      "snippet": "Join Lime's product leadership team. Help scale micromobility across North America with focus on operations and strategy.",
+      "url": "https://www.li.me/careers",
+      "scrapedAt": "2026-04-08T22:26:13.087495"
+    }
+  ]
+}

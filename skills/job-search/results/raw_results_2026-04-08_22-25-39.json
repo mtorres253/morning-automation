@@ -1,0 +1,9 @@
+{
+  "searchedAt": "2026-04-08T22:25:39.047293",
+  "totalFound": 0,
+  "searchStatus": [
+    "\u2717 Indeed: No jobs found (selectors may be outdated)",
+    "\u2717 AngelList: HTTPError: 404 Client Error: Not Found for url: https://api.wellfound.com/jobs?query=Director+of+Product+Princi"
+  ],
+  "jobs": []
+}

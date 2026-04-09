@@ -5,6 +5,7 @@ Reads raw job search results, applies filtering/ranking, and sends email.
 """
 
 import json
+import os
 import smtplib
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,14 @@ from email.mime.multipart import MIMEMultipart
 
 CONFIG_PATH = Path(__file__).parent.parent / "job-search-config.json"
 INTERACTIONS_PATH = Path(__file__).parent.parent / "job-interactions.json"
-RESULTS_DIR = Path(__file__).parent.parent / "results"
+
+# Use /tmp for Lambda compatibility (read-only filesystem in Lambda)
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    RESULTS_DIR = Path("/tmp") / "job-search-results"
+    SENT_JOBS_PATH = Path("/tmp") / "sent-jobs.json"
+else:
+    RESULTS_DIR = Path(__file__).parent.parent / "results"
+    SENT_JOBS_PATH = Path(__file__).parent.parent / "sent-jobs.json"
 
 with open(CONFIG_PATH, "r") as f:
     config = json.load(f)
@@ -25,6 +33,12 @@ if INTERACTIONS_PATH.exists():
     with open(INTERACTIONS_PATH, "r") as f:
         interactions = json.load(f)
 
+# Load previously sent jobs (to track what's no longer posted)
+sent_jobs = {}
+if SENT_JOBS_PATH.exists():
+    with open(SENT_JOBS_PATH, "r") as f:
+        sent_jobs = json.load(f)
+
 def load_latest_results() -> Dict[str, Any]:
     """Load the latest raw results file."""
     result_files = sorted(RESULTS_DIR.glob("raw_results_*.json"), reverse=True)
@@ -33,6 +47,45 @@ def load_latest_results() -> Dict[str, Any]:
     
     with open(result_files[0], "r") as f:
         return json.load(f)
+
+def filter_to_new_jobs(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Return jobs that are either:
+    1. New (never sent before)
+    2. Previously sent but still want to show for up to 3 days
+    
+    Jobs disappear from listings after 3 days or when they're no longer in search results.
+    """
+    shown_jobs = []
+    current_job_ids = {j.get("jobId") for j in jobs}
+    
+    for job in jobs:
+        job_id = job.get("jobId")
+        
+        if job_id in sent_jobs:
+            # Job was sent before - check if still within 3-day window
+            sent_record = sent_jobs[job_id]
+            sent_date = datetime.fromisoformat(sent_record["sentDate"])
+            days_since_sent = (datetime.now() - sent_date).days
+            
+            if days_since_sent < 3:
+                # Still within 3-day window, show it again
+                shown_jobs.append(job)
+                # Update the sent date to track the most recent showing
+                sent_jobs[job_id]["sentDate"] = datetime.now().isoformat()
+            else:
+                # Past 3 days, remove from tracking
+                del sent_jobs[job_id]
+        else:
+            # New job, always show it
+            shown_jobs.append(job)
+            sent_jobs[job_id] = {
+                "title": job.get("title"),
+                "company": job.get("company"),
+                "sentDate": datetime.now().isoformat()
+            }
+    
+    return shown_jobs
 
 def calculate_relevance_score(job: Dict[str, Any]) -> float:
     """
@@ -114,9 +167,74 @@ def group_jobs_by_category(jobs: List[Dict[str, Any]]) -> Dict[str, List[Dict[st
     # Remove empty groups
     return {k: v for k, v in groups.items() if v}
 
-def format_email_body(jobs: List[Dict[str, Any]]) -> str:
+def format_email_body(jobs: List[Dict[str, Any]], search_status: List[str] = None) -> str:
     """Format jobs into an HTML email body."""
-    grouped = group_jobs_by_category(jobs)
+    
+    # Build search status section (always shown)
+    status_html = ""
+    if search_status:
+        status_html = """
+        <div class="search-status">
+            <h3 style="color: #2c5aa0; margin-top: 0;">Search Status</h3>
+        """
+        for status in search_status:
+            if status.startswith("✓"):
+                status_color = "#28a745"  # Green
+            elif status.startswith("✗"):
+                status_color = "#dc3545"  # Red
+            else:
+                status_color = "#ffc107"  # Yellow
+            
+            status_html += f"""
+            <div style="color: {status_color}; font-size: 14px; margin: 5px 0; font-weight: 500;">
+                {status}
+            </div>
+            """
+        status_html += "</div>"
+    
+    # Build job listings section (or "no jobs" message)
+    jobs_html = ""
+    if jobs:
+        grouped = group_jobs_by_category(jobs)
+        for category, category_jobs in grouped.items():
+            jobs_html += f"""
+            <div class="category">
+                <div class="category-title">{category} ({len(category_jobs)})</div>
+            """
+            
+            for job in category_jobs[:5]:  # Limit to top 5 per category
+                score_pct = int(job["relevanceScore"] * 100)
+                jobs_html += f"""
+                <div class="job">
+                    <div class="job-title">{job.get('title', 'Unknown Position')}</div>
+                    <div class="job-company">{job.get('company', 'Unknown Company')}</div>
+                    <div class="job-details">
+                        📍 {job.get('location', 'Not specified')} | 
+                        💰 {job.get('salary', 'Not specified')} | 
+                        📊 <span class="score">Match: {score_pct}%</span>
+                    </div>
+                    <div class="job-details">
+                        Source: {job.get('source', 'unknown').title()}
+                    </div>
+                    <div class="job-snippet">{job.get('snippet', 'No description available')[:150]}...</div>
+                    <div class="apply-link">
+                        <a href="{job.get('url', '#')}">View Job →</a>
+                    </div>
+                </div>
+                """
+            
+            jobs_html += "</div>"
+    else:
+        jobs_html = """
+        <div class="no-jobs-message">
+            <p style="font-size: 16px; color: #666; text-align: center; padding: 30px;">
+                ℹ️ No matching jobs found today.
+            </p>
+            <p style="font-size: 14px; color: #999; text-align: center;">
+                Check back tomorrow for new listings, or update your search criteria in job-search-config.json.
+            </p>
+        </div>
+        """
     
     html = f"""
     <html>
@@ -124,6 +242,8 @@ def format_email_body(jobs: List[Dict[str, Any]]) -> str:
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .header {{ background-color: #f0f0f0; padding: 20px; margin-bottom: 20px; }}
+            .search-status {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; }}
+            .no-jobs-message {{ background-color: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0; border-radius: 4px; }}
             .category {{ margin-bottom: 30px; }}
             .category-title {{ font-size: 18px; font-weight: bold; color: #2c5aa0; margin-bottom: 10px; border-bottom: 2px solid #2c5aa0; padding-bottom: 5px; }}
             .job {{ background-color: #f9f9f9; border-left: 4px solid #2c5aa0; padding: 15px; margin-bottom: 15px; }}
@@ -144,38 +264,8 @@ def format_email_body(jobs: List[Dict[str, Any]]) -> str:
             <p>Found <strong>{len(jobs)}</strong> matching jobs</p>
             <p>Generated: {datetime.now().strftime('%A, %B %d, %Y at %I:%M %p')}</p>
         </div>
-    """
-    
-    for category, category_jobs in grouped.items():
-        html += f"""
-        <div class="category">
-            <div class="category-title">{category} ({len(category_jobs)})</div>
-        """
-        
-        for job in category_jobs[:5]:  # Limit to top 5 per category
-            score_pct = int(job["relevanceScore"] * 100)
-            html += f"""
-            <div class="job">
-                <div class="job-title">{job.get('title', 'Unknown Position')}</div>
-                <div class="job-company">{job.get('company', 'Unknown Company')}</div>
-                <div class="job-details">
-                    📍 {job.get('location', 'Not specified')} | 
-                    💰 {job.get('salary', 'Not specified')} | 
-                    📊 <span class="score">Match: {score_pct}%</span>
-                </div>
-                <div class="job-details">
-                    Source: {job.get('source', 'unknown').title()}
-                </div>
-                <div class="job-snippet">{job.get('snippet', 'No description available')[:150]}...</div>
-                <div class="apply-link">
-                    <a href="{job.get('url', '#')}">View Job →</a>
-                </div>
-            </div>
-            """
-        
-        html += "</div>"
-    
-    html += f"""
+        {status_html}
+        {jobs_html}
         <div class="footer">
             <p>This is an automated job search digest. To manage your preferences, edit job-search-config.json.</p>
             <p>Interact with jobs (save, apply, reject) to improve future recommendations.</p>
@@ -232,18 +322,33 @@ def main():
         # Load and filter results
         raw_results = load_latest_results()
         jobs = raw_results.get("jobs", [])
+        search_status = raw_results.get("searchStatus", [])  # Get search status from raw results
         
-        print(f"📊 Filtering {len(jobs)} jobs...")
-        filtered_jobs = filter_and_rank_jobs(jobs)
+        # Filter out sample/fallback jobs - only keep real results
+        real_jobs = [j for j in jobs if j.get("source") not in ["sample", "fallback"]]
         
-        print(f"✓ {len(filtered_jobs)} jobs passed filter")
+        print(f"📊 Found {len(real_jobs)} real jobs (filtered out {len(jobs) - len(real_jobs)} sample/fallback jobs)")
+        print("Search Status:")
+        for status in search_status:
+            print(f"  {status}")
         
-        if not filtered_jobs:
-            print("No jobs matched your criteria.")
-            return
+        filtered_jobs = []
         
-        # Format and send email
-        html_body = format_email_body(filtered_jobs)
+        # If we have real jobs, filter to only NEW jobs (not sent before)
+        if real_jobs:
+            new_jobs = filter_to_new_jobs(real_jobs)
+            print(f"📋 {len(new_jobs)} new jobs (out of {len(real_jobs)} total)")
+            
+            if new_jobs:
+                filtered_jobs = filter_and_rank_jobs(new_jobs)
+                print(f"✓ {len(filtered_jobs)} jobs passed filter")
+            else:
+                print("✓ All jobs already sent in previous digests. No new jobs today.")
+        else:
+            print("ℹ️  No real job search results found.")
+        
+        # ALWAYS send email (with jobs if found, or status/message if not)
+        html_body = format_email_body(filtered_jobs, search_status)
         subject = f"🔍 Daily Job Search Digest — {datetime.now().strftime('%A, %B %d')}"
         
         # Get email recipient from config or default
@@ -251,6 +356,15 @@ def main():
         
         if send_email(subject, html_body, to_email):
             print(f"✓ Digest delivered to {to_email}")
+            if filtered_jobs:
+                print(f"  → {len(filtered_jobs)} jobs included")
+            else:
+                print(f"  → Status report sent (no jobs found)")
+        
+        # Save sent jobs tracking
+        with open(SENT_JOBS_PATH, "w") as f:
+            json.dump(sent_jobs, f, indent=2)
+        print(f"📁 Updated sent jobs tracking: {SENT_JOBS_PATH}")
         
         # Save filtered results for history
         timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")

@@ -1,0 +1,9 @@
+{
+  "searchedAt": "2026-04-08T23:15:04.653699",
+  "totalFound": 0,
+  "searchStatus": [
+    "\u2717 Indeed: No jobs found (selectors may be outdated)",
+    "\u2717 JSearch: HTTPError: 400 Client Error: Bad Request for url: https://jsearch.p.rapidapi.com/search?que"
+  ],
+  "jobs": []
+}
