@@ -15,22 +15,22 @@ Product leader with 12+ years delivering secure, compliant, cloud-based and safe
 ## Capabilities (Aligned to Role Requirements)
 
 **Product & Strategy**
-Agile software product management, Strategic leadership, Organizational and product roadmapping, User research, User experience design and testing, Opportunity framing & concept development, Metrics and KPI development and implementation, Customer-focused product requirements, Discovery & validation, MVP framing, execution & validation, Prioritization & validation, Product strategy and ideation, AI product design, AI-enabled product strategy, Go-to-market (GTM) strategy, Market analysis / market research, Market and business strategy, Competitive analysis / competitive benchmarking, Business case development, User stories & business case development
+Strategic leadership, Go-to-market (GTM) strategy, Competitive analysis / competitive benchmarking, Product strategy and ideation, Market analysis / market research
 
 **Delivery & Operations**
-Program & portfolio management delivery, Continuous integration & service delivery, Continuous integration & delivery set-up and management, Resource management & staffing, Change management and adoption, Agile practices, Process design, Project execution and timeline management, Risk management and mitigation, Product operations, Onboarding / runbooks / release coordination, Data systems development, Journey mapping & prototyping, Compliance by design
+Program & portfolio management delivery, Project execution and timeline management, Risk management and mitigation, Scoping and feasibility assessment, Compliance by design
 
 **Leadership & People**
-People management and coaching, Stakeholder relationship management, Strategic partnership development, Cross-functional team leadership, Team building, Executive advising, Sales enablement, Stakeholder communications, Organizational roadmapping
+Stakeholder relationship management, Strategic partnership development, Cross-functional team leadership, Sales enablement, Stakeholder communications
 
 **Domain Expertise & Compliance**
-Professional services consulting, Customer relationship management, Government contracting and contract management, Contract compliance and government contracting, ISO 27001 compliance, Regulatory stakeholder management, Regulatory analysis, Regulatory compliance, UAS / FAR federal regulations, Ideation workshop facilitation, Scoping and feasibility assessment
+Government contracting and contract management, Contract compliance and government contracting, ISO 27001 compliance, Regulatory stakeholder management, Regulatory compliance, UAS / FAR federal regulations
 
 **Technology & Infrastructure**
-Systems integration & API partnerships, Cloud computing (AWS, GCP, Azure), Multi-cloud platform delivery, IoT infrastructure, Edge devices, Data systems, Safety-critical development, Drone operations, Flight planning, LAANC, Part 107 remote pilot certification, Applied machine learning, Artificial intelligence, AWS cloud practitioner, Telemetry
+Systems integration & API partnerships, Safety-critical development, Drone operations, LAANC, Part 107 remote pilot certification
 
 **Additional Capabilities**
-Digital transformation, Enterprise software, SaaS, Innovation portfolio management, Pilot programs, Portfolio management, Product analytics, Product consulting, Product development, Product management, Product marketing, Behavior driven development (BDD), Business development, Analytics / data analytics, OKRs, KPIs
+Business development, Product management, Product marketing
 
 ---
 
