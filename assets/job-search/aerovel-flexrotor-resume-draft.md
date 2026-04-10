@@ -12,27 +12,25 @@ Product leader with 12+ years delivering secure, compliant, cloud-based and safe
 
 ---
 
-## Core Competencies
+## Capabilities (Aligned to Role Requirements)
 
-**Technical & Sales Leadership**
-- Translating complex technical concepts into clear, customer-friendly language for proposals and presentations *(Sales & Technical Support: 60%)*
-- Leading technical capture efforts and proposal development for high-complexity solutions *(Sales & Technical Support: 60%)*
-- Serving as primary technical point of contact for customers and providing product demonstrations *(Sales & Technical Support: 60%)*
-- Managing multiple priorities in a fast-paced environment with overlapping deadlines *(Sales & Technical Support: 60%)*
+**Product & Strategy**
+Agile software product management, Strategic leadership, Organizational and product roadmapping, User research, User experience design and testing, Opportunity framing & concept development, Metrics and KPI development and implementation, Customer-focused product requirements, Discovery & validation, MVP framing, execution & validation, Prioritization & validation, Product strategy and ideation, AI product design, AI-enabled product strategy, Go-to-market (GTM) strategy, Market analysis / market research, Market and business strategy, Competitive analysis / competitive benchmarking, Business case development, User stories & business case development
 
-**Cross-Functional Collaboration**
-- Acting as bridge between sales and engineering, ensuring alignment on customer requirements and technical feasibility *(Liaison with Engineering: 30%)*
-- Facilitating regular communications between sales and engineering teams to resolve technical challenges *(Liaison with Engineering: 30%)*
-- Experience working with cross-functional teams, especially engineering and sales *(Required Qualification)*
+**Delivery & Operations**
+Program & portfolio management delivery, Continuous integration & service delivery, Continuous integration & delivery set-up and management, Resource management & staffing, Change management and adoption, Agile practices, Process design, Project execution and timeline management, Risk management and mitigation, Product operations, Onboarding / runbooks / release coordination, Data systems development, Journey mapping & prototyping, Compliance by design
 
-**Aviation & Compliance Domain**
-- 5+ years aviation, aerospace, and UAS industry experience
-- Understanding of engineering drawings, technical specifications, and compliance frameworks
-- ITAR awareness and US Person compliance
+**Leadership & People**
+People management and coaching, Stakeholder relationship management, Strategic partnership development, Cross-functional team leadership, Team building, Executive advising, Sales enablement, Stakeholder communications, Organizational roadmapping
 
-**Tools & Systems Proficiency**
-- Proficient in CRM systems (Salesforce), MS Office Suite, and data analysis tools
-- Operator level proficiency in MS Office 365, GSuite, Adobe Acrobat
+**Domain Expertise & Compliance**
+Professional services consulting, Customer relationship management, Government contracting and contract management, Contract compliance and government contracting, ISO 27001 compliance, Regulatory stakeholder management, Regulatory analysis, Regulatory compliance, UAS / FAR federal regulations, Ideation workshop facilitation, Scoping and feasibility assessment
+
+**Technology & Infrastructure**
+Systems integration & API partnerships, Cloud computing (AWS, GCP, Azure), Multi-cloud platform delivery, IoT infrastructure, Edge devices, Data systems, Safety-critical development, Drone operations, Flight planning, LAANC, Part 107 remote pilot certification, Applied machine learning, Artificial intelligence, AWS cloud practitioner, Telemetry
+
+**Additional Capabilities**
+Digital transformation, Enterprise software, SaaS, Innovation portfolio management, Pilot programs, Portfolio management, Product analytics, Product consulting, Product development, Product management, Product marketing, Behavior driven development (BDD), Business development, Analytics / data analytics, OKRs, KPIs
 
 ---
 
