@@ -21,6 +21,7 @@ The `gmail-digest-lambda.zip` is ready to deploy. It contains:
 
 4. **Set Handler:**
    - Handler: `scripts.lambda_handler.lambda_handler`
+   - (Python path: `scripts/lambda_handler.py` → function `lambda_handler`)
 
 5. **Set Timeout:**
    - Timeout: 60 seconds (gives script time to fetch 50 emails)
@@ -89,8 +90,18 @@ This approach is more secure for production.
 - Or: Reduce maxResults from 50 to 25 in fetch_digest.py
 
 ### "Module not found" error
-- Check handler: should be `scripts.lambda_handler.lambda_handler`
-- Ensure zip structure has `scripts/` folder at root
+- **Check handler:** should be `scripts.lambda_handler.lambda_handler` (with the dot)
+- **Ensure zip structure:** files at root level
+  ```
+  gmail-digest-lambda.zip
+  ├── scripts/
+  │   ├── fetch_digest.py
+  │   ├── format_and_deliver.py
+  │   └── lambda_handler.py
+  ├── gmail_oauth.json
+  ├── email_config.json
+  └── gmail-digest-config.json
+  ```
 
 ### "Credentials not found"
 - If bundled: ensure json files are in zip root

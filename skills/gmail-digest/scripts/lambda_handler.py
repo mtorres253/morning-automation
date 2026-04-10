@@ -12,9 +12,12 @@ from pathlib import Path
 def lambda_handler(event, context):
     """Lambda entry point."""
     try:
-        # Run format_and_deliver.py
+        # Run format_and_deliver.py from same directory
+        script_dir = Path(__file__).parent
+        script_path = script_dir / "format_and_deliver.py"
+        
         result = subprocess.run(
-            ["python3", "/var/task/scripts/format_and_deliver.py"],
+            ["python3", str(script_path)],
             capture_output=True,
             text=True,
             timeout=60
