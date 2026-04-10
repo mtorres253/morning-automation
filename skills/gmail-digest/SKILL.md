@@ -16,43 +16,48 @@ Key rules: summarize only — never quote verbatim in chat. Never send emails au
 
 ## Credentials
 
-Civic credentials: `/Users/michaeltorres/.openclaw/secrets/civic_credentials.json`
-Fields: `mcp_url`, `access_token`
+**Gmail OAuth:** `/Users/michaeltorres/.openclaw/workspace/secrets/gmail_oauth.json`
+- `client_id`, `client_secret`, `refresh_token`
+- Used by `fetch_digest.py`
+- Auto-refreshes access tokens
 
-Legacy OAuth script (`skills/gmail-digest/scripts/fetch_digest.py`) still works as fallback if Civic is unavailable.
+**Email delivery:** `/Users/michaeltorres/.openclaw/secrets/email_config.json`
+- `smtp_server`, `smtp_port`, `sender_email`, `sender_password`
+- Used by `format_and_deliver.py` to send digest emails
+- Requires Gmail app password (not regular password)
 
 ## Workflow
 
-### Primary: Civic
+### Pipeline: OAuth → Fetch → Format → Deliver
 
-1. Search Gmail for messages from the last 24 hours:
-   ```bash
-   cd /Users/michaeltorres/.openclaw/workspace/skills/openclaw-civic-skill
-   CIVIC_URL="<from secrets>" CIVIC_TOKEN="<from secrets>" \
-   npx tsx civic-tool-runner.ts --call google-gmail-search_gmail_messages \
-     --args '{"query": "newer_than:1d", "max_results": 50}'
-   ```
+1. **Fetch emails via Gmail OAuth** (`fetch_digest.py`):
+   - Uses OAuth 2.0 credentials from `~/.openclaw/workspace/secrets/gmail_oauth.json`
+   - Searches Gmail for messages from last 24 hours
+   - Returns JSON: `[{subject, from, date, snippet}, ...]`
+   - Takes ~20 seconds for 50 messages
 
-2. Batch fetch message content:
-   ```
-   tool: google-gmail-get_gmail_messages_content_batch
-   args: {"message_ids": [...]}
-   ```
+2. **Format and deliver digest** (`format_and_deliver.py`):
+   - Calls `fetch_digest.py` internally
+   - Groups emails by category (Work, Events, Job Alerts, Personal, Other)
+   - Formats as HTML email
+   - Sends via SMTP (Gmail, requires app password)
+   - **ALWAYS sends** (even if no emails, status included)
 
-3. Group and summarize by category (Job Alerts, Events, Personal, Newsletters, etc.)
+### Manual Run
 
-4. Deliver as a scannable digest — bullets, grouped, no walls of text.
-
-### Fallback: Legacy Script
-
-If Civic tools fail or return an auth error:
 ```bash
+# Just fetch emails
 cd /Users/michaeltorres/.openclaw/workspace
 python3 skills/gmail-digest/scripts/fetch_digest.py
+
+# Fetch + format + deliver
+python3 skills/gmail-digest/scripts/format_and_deliver.py
 ```
 
 ## Notes
 
-- Civic tokens expire after ~30 days — if you get 401 errors, Michael needs to regenerate at nexus.civic.com
-- Never expose email content verbatim in public channels
-- Flag urgent items (replies needed, calendar events) prominently at the top of the digest
+- **Gmail OAuth:** Tokens auto-refresh. If you get 401 errors, regenerate credentials at myaccount.google.com/device-activity
+- **Email delivery:** Gmail requires "App Passwords" (not regular passwords). Create one at myaccount.google.com/apppasswords
+- **Lambda deployment:** Both `fetch_digest.py` and `format_and_deliver.py` support `/tmp` for temp files
+- **Privacy:** Never expose email content verbatim in public channels
+- **Categories:** Emails are grouped by Work, Events, Job Alerts, Personal, Other (see gmail-digest-config.json to customize)

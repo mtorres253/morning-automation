@@ -137,19 +137,20 @@ def search_jsearch() -> tuple[List[Dict[str, Any]], str]:
     search_params = config["searches"][0]
     
     try:
-        # Load JSearch credentials
-        secrets_path = Path.home() / ".openclaw" / "secrets" / "jsearch_credentials.json"
-        if not secrets_path.exists():
-            status = "⚠️  JSearch: Credentials not found"
-            print(f"  {status}")
-            return jobs, status
+        # Load JSearch credentials from environment or file
+        api_key = os.environ.get("JSEARCH_API_KEY")
+        api_host = os.environ.get("JSEARCH_API_HOST", "jsearch.p.rapidapi.com")
+        api_url = os.environ.get("JSEARCH_API_URL", "https://jsearch.p.rapidapi.com/search")
         
-        with open(secrets_path, "r") as f:
-            jsearch_creds = json.load(f)
-        
-        api_key = jsearch_creds.get("api_key")
-        api_host = jsearch_creds.get("api_host", "jsearch.p.rapidapi.com")
-        api_url = jsearch_creds.get("api_url", "https://jsearch.p.rapidapi.com/search")
+        # Fall back to file if env vars not set
+        if not api_key:
+            secrets_path = Path.home() / ".openclaw" / "secrets" / "jsearch_credentials.json"
+            if secrets_path.exists():
+                with open(secrets_path, "r") as f:
+                    jsearch_creds = json.load(f)
+                api_key = jsearch_creds.get("api_key")
+                api_host = jsearch_creds.get("api_host", api_host)
+                api_url = jsearch_creds.get("api_url", api_url)
         
         if not api_key:
             status = "⚠️  JSearch: API key not configured"

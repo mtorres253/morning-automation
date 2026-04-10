@@ -1,0 +1,34 @@
+{
+  "emailTo": "mtorres253@gmail.com",
+  "categories": {
+    "Work & GitHub": [
+      "github",
+      "gsatts",
+      "identity-dev",
+      "pull request",
+      "merge",
+      "issue",
+      "notifications@github.com"
+    ],
+    "Meetings & Events": [
+      "meeting",
+      "invite",
+      "invitation",
+      "calendar",
+      "event",
+      "design meeting"
+    ],
+    "Job Alerts": [
+      "job search",
+      "digest",
+      "matching jobs",
+      "daily job"
+    ],
+    "Personal": [
+      "david",
+      "russell",
+      "family"
+    ],
+    "Other": []
+  }
+}

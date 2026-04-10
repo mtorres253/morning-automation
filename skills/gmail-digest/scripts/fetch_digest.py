@@ -76,19 +76,23 @@ def main():
         result = gmail_get(f"users/me/messages?{encoded_query}", token)
         messages = result.get("messages", [])
 
+        # Fetch messages in batches of 10 for efficiency
         emails = []
-        for msg in messages:
-            detail = gmail_get(
-                f"users/me/messages/{msg['id']}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date",
-                token
-            )
-            headers = detail.get("payload", {}).get("headers", [])
-            emails.append({
-                "subject": header_val(headers, "Subject") or "(no subject)",
-                "from": header_val(headers, "From"),
-                "date": header_val(headers, "Date"),
-                "snippet": detail.get("snippet", "")
-            })
+        batch_size = 10
+        for i in range(0, len(messages), batch_size):
+            batch = messages[i:i+batch_size]
+            for msg in batch:
+                detail = gmail_get(
+                    f"users/me/messages/{msg['id']}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date",
+                    token
+                )
+                headers = detail.get("payload", {}).get("headers", [])
+                emails.append({
+                    "subject": header_val(headers, "Subject") or "(no subject)",
+                    "from": header_val(headers, "From"),
+                    "date": header_val(headers, "Date"),
+                    "snippet": detail.get("snippet", "")
+                })
 
         print(json.dumps(emails, indent=2))
     

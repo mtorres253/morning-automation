@@ -278,19 +278,28 @@ def format_email_body(jobs: List[Dict[str, Any]], search_status: List[str] = Non
 
 def send_email(subject: str, html_body: str, to_email: str):
     """Send email via SMTP."""
-    # Load email config from secrets or use env
+    # Load email config from environment variables first, then fall back to file
     try:
-        secrets_path = Path.home() / ".openclaw" / "secrets" / "email_config.json"
-        if secrets_path.exists():
-            with open(secrets_path, "r") as f:
-                email_config = json.load(f)
-        else:
-            raise FileNotFoundError("Email config not found. Please create ~/.openclaw/secrets/email_config.json")
+        # Try environment variables (for Lambda)
+        smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        sender_email = os.environ.get("SENDER_EMAIL")
+        sender_password = os.environ.get("SENDER_PASSWORD")
         
-        smtp_server = email_config.get("smtp_server", "smtp.gmail.com")
-        smtp_port = email_config.get("smtp_port", 587)
-        sender_email = email_config.get("sender_email")
-        sender_password = email_config.get("sender_password")
+        # Fall back to config file if env vars not set
+        if not sender_email or not sender_password:
+            # Try workspace secrets first, then fallback to home secrets
+            secrets_path = Path.home() / ".openclaw" / "workspace" / "secrets" / "email_config.json"
+            if not secrets_path.exists():
+                secrets_path = Path.home() / ".openclaw" / "secrets" / "email_config.json"
+            
+            if secrets_path.exists():
+                with open(secrets_path, "r") as f:
+                    email_config = json.load(f)
+                smtp_server = email_config.get("smtp_server", smtp_server)
+                smtp_port = email_config.get("smtp_port", smtp_port)
+                sender_email = email_config.get("sender_email", sender_email)
+                sender_password = email_config.get("sender_password", sender_password)
         
         if not sender_email or not sender_password:
             print("⚠️  Email credentials not configured. Skipping email delivery.")
