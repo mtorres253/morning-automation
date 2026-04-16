@@ -9,8 +9,8 @@ import os
 from datetime import datetime
 
 # Initialize AWS clients
-ses_client = boto3.client('ses', region_name='us-west-2')
-s3_client = boto3.client('s3', region_name='us-west-2')
+ses_client = boto3.client('ses', region_name='us-east-2')
+s3_client = boto3.client('s3', region_name='us-east-2')
 
 # Configuration
 GMAIL_EMAIL = os.environ.get('GMAIL_EMAIL', 'mtorres253@gmail.com')
