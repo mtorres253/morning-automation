@@ -2,13 +2,13 @@
   "searches": [
     {
       "name": "Product Leadership - Civic/Gov Tech",
-      "keywords": ["Director of Product", "Principal Product Manager", "Chief of Staff", "Product Operations Director"],
-      "locations": ["San Francisco, CA", "Bay Area", "Remote", "Hybrid"],
+      "keywords": ["Director of Product", "Principal Product Manager", "Chief of Staff", "Product Operations Director", "govtech", "government", "civic tech", "public sector", "federal", "state government"],
+      "locations": ["San Francisco, CA", "Bay Area", "Remote"],
       "salaryMin": 200000,
       "salaryMax": 250000,
       "company": {
         "stage": ["Series C", "Series D", "Series E", "Series F", "Late Stage", "Public"],
-        "industries": ["Government", "Civic Tech", "Aviation", "Drone Tech", "Transportation", "Mobility", "Micromobility", "Healthcare Innovation", "Finance Innovation"],
+        "industries": ["Government", "Civic Tech", "GovTech", "Public Sector", "Federal", "Aviation", "Drone Tech", "Transportation", "Mobility", "Micromobility", "Healthcare Innovation", "Finance Innovation"],
         "size": ["mid", "large"]
       },
       "workArrangement": ["Remote", "Hybrid"],
