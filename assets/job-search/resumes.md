@@ -115,18 +115,18 @@ Product leader with 12+ years experience building cloud-based digital platforms 
 ### Product Innovation Director — Acubed by Airbus
 *March 2024 – February 2026*
 
-- Operationalized organizational strategy for a 50-person innovation center by working with leadership and project teams to establish yearly OKRs and KPIs.
-- Aligned organizational efforts towards clear strategic objectives and innovation outcomes by developing and operationalizing OKRs and KPIs in partnership with senior leadership and project teams.
+- Responsible for leading yearly OKR and KPI development for a 50-person innovation center by working with leadership and project teams to connect innovation to existing and near-future Airbus priorities.
 - Defined success measures for Acubed's impact on Airbus objectives to better communicate value to stakeholders, enhancing program management capabilities.
 - Designed and established an AI innovation funnel, incorporating input from leadership and delivery teams, to structure early-stage concept experimentation and validation, staffing decisions, and transition of mature technologies to Airbus programs.
 - Enhanced operational efficiency by establishing an innovation funnel facilitating early-stage AI concept experimentation and ultimate value delivery to Airbus.
 - Conducted company-wide workshops with a 50+ team on fostering AI fluency and responsible adoption - promoting a culture of experimentation and continuous improvement while supporting change management across the organization.
-- Led company-wide workshops on fostering AI fluency, experimentation, and responsible adoption, promoting a culture of innovation and continuous improvement.
-- Co-created and pitched early-stage AI concepts focused on improving the passenger and crew experience and pilot training; three pitches were accepted, securing $2M in seed funding for new 2026 initiatives.
+- Conducted company-wide workshops and training on fostering AI fluency and responsible adoption - promoting knowledge sharing, and a culture of experimentation and continuous improvement.
+- Co-created and pitched early-stage AI concepts focused on passenger and crew experience, supply chain and pilot training, by translating highly technical concepts into user friendly language for Airbus stakeholders; three pitches were accepted, securing $2M in seed funding for new 2026 initiatives from technology roadmap owners.
 - Co-created and pitched early-stage AI concepts focused on improving the passenger and crew experience and pilot training; three pitches accepted for funding in 2026, securing $2M in seed funding for new 2026 initiatives.
 - Developed and pitched market-informed AI product proposals, including sizing, competition, potential revenue models, and GTM strategy.
 - Mapped and evaluated a portfolio of 20 AI-powered products and services against strategic metrics, producing executive-facing insights and recommendations.
 - Facilitated design-thinking workshops with Airbus customers like JetBlue to frame opportunities and prioritize AI concepts by potential market impact and feasibility using frameworks like the business canvas model.
+- Organized and facilitated customer workshops and technical discovery sessions with customers like JetBlue, connecting high-priority customer needs to proposed technical approaches, and desired impact.
 - Created executive communications and stakeholder updates to ensure alignment across Airbus and Acubed on priorities.
 
 ---
@@ -144,6 +144,7 @@ Product leader with 12+ years experience building cloud-based digital platforms 
 - Created developer tools to lower the barrier to entry for new developers.
 - Defined product requirements for several digital services supporting drone operators, as well as a BDD-based test harness to document system behavior, reduce risk, and demonstrate regulatory compliance.
 - Developed user personas and user stories based on interviews with internal and external developers, researchers, and business owners.
+- Owned compliance for all products and services by overseeing multiple upgrade onboardings, ISO-27001 audits, FAA audits, and system integration testing cycles so that our products continually met or exceeded regulatory standards.
 - Led end-to-end ISO-27001 certification cycles, including evidence collection, documentation control, audit preparation, and cross-functional compliance remediation.
 - Owned LAANC regulatory compliance, overseeing multiple upgrade onboardings, FAA security audits, requirements interpretation, and alignment with evolving UAS rules.
 - Managed a budget of $1M per year to pay for third party contracts, shared services, infrastructure and subscriptions to support the digital platform and services, as well as the collaboration tools used by the team.
@@ -165,7 +166,7 @@ Product leader with 12+ years experience building cloud-based digital platforms 
 *October 2021 – October 2023*
 
 - Served as strategic product advisor to Jarvus leadership on the California Integrated Transportation Program (Cal-ITP), a statewide initiative modernizing transportation technology across 250+ transit agencies.
-- Improved team alignment and stakeholder management by building the first portfolio-wide priority tracker and roadmap for the California Integrated Transportation Program (Cal-ITP), a statewide initiative modernizing transportation technology across 250+ transit agencies, while also improving access and affordability for seniors, low income, and disabled populations.
+- Served as strategic advisor to Jarvus leadership on a government contract with the State of California Integrated Transportation Program (Cal-ITP), an initiative to make riding by bus and train simpler and more cost-effective - for California’s 250+ transit agencies and their customers.
 - Built the first portfolio-wide priority tracker and roadmap for Cal-ITP, improving alignment and stakeholder buy-in through effective program management.
 - Introduced initiative shaping and prioritization using user research data and program management expertise to better focus on customer needs.
 - Led a business process redesign of the Caltrans grants award and management process to improve project selection and execution, and ultimately, rider outcomes, prioritizing needs over the "color of money."
@@ -180,14 +181,15 @@ Product leader with 12+ years experience building cloud-based digital platforms 
 ### Head of Product Practice — Truss
 *October 2018 – June 2019*
 
-- Led a cross-functional team of 20 engineers, 4 designers, and 3 product managers to deliver a digital service to improve the customer experience of 400,000 service members and families as they relocated across the continental US.
+- Led a cross-functional team of 28 engineers, designers, and product managers to deliver a digital service improving the moving experience by reducing cost, timelines and property damage for 400,000 service members and families as they relocated across the continental US.
 - Set product vision and strategy; conducted workshops with the USTRANSCOM team to identify, shape, and prioritize opportunities to improve the service member experience.
 - Managed a third-party systems integration that provided real-time data from moving companies to help service members make relocation decisions.
 - Built Truss's product management practice by developing hiring and leveling frameworks, upskilling one internal engineer into a PM role, and hiring and mentoring three additional PMs.
 - Led a cross-functional team of 20 engineers, 4 designers, and 3 product managers to deliver a digital service improving the experience of 400,000 service members and families as they relocate across the continental US.
 - Conducted workshops with the USTRANSCOM team to set product vision and strategy, and identify, shape, and prioritize initiatives to ensure delivery of measurable value.
+- Conducted workshops with the US Transportation Command (USTRANSCOM) leadership team to set product vision and strategy and align on customer requirements, translated these requirements so they could be implemented by the design and engineering team, and then drove delivery on time and on budget.
 - Increased delivery capacity and quality by building Truss's product management practice - developing hiring and leveling frameworks, upskilling internal staff, and hiring and mentoring three product managers.
-- Managed the multi-million dollar TRANSCOM client relationship to ensure quality, contract compliance, budget adherence and timely resolution of program risks through regular governance and stakeholder check-ins.
+- Managed the multi-million dollar TRANSCOM client relationship to ensure contract compliance, budget adherence and timely resolution of program risks via regular stakeholder check-ins.
 - Established project execution and quality metrics to support predictable delivery.
 
 ---
@@ -195,9 +197,10 @@ Product leader with 12+ years experience building cloud-based digital platforms 
 ### Director of Product Management — 18F (General Services Administration)
 *September 2015 – October 2018 (Promoted to Director July 2017)*
 
-- Managed and scaled a product management team from 8 to 15 in under four months, recruiting and onboarding staff while maintaining delivery continuity.
-- Served on the 18F senior management team, guiding strategy, organizational development, and cross-functional coordination between policy, engineering, design, and operations.
+- Established and led the 18F product management chapter; growing the team from 8 to 15 people in four months, mentoring team members and developing staff capabilities, and ensuring that project teams successfully delivered the right thing on time and on budget.
+- As a member of the 18F senior management team, I helped inform organizational strategy, develop team development and change management initiatives, and ensure ongoing coordination between policy, engineering, design, and operations.
 - Co-led the effort to define the vision, performance metrics, and strategy for 18F's first business development portfolio, building long-term federal and state partnerships in the health and human services domain, particularly with CMS and State medicaid programs.
+- Co-led the creation of 18F's first business development portfolio focused on CMS and State Medicaid programs, scaling technical proposal creation, solution shaping, and federal client engagement efforts.
 - Led the creation of an experimental open-source auction platform (leveraging the micropurchase threshold, FAR 2.101 and 13.2) that introduced more than 100 new small businesses to the Government IT marketplace.
 - Initiated and led the modernization of the State of Alaska Department of Health and Human Services Medicaid eligibility systems, ensuring compliance with CMS regulations and reducing claims processing time by 60% while improving service reliability and staff satisfaction.
 - Shaped and prioritized the delivery roadmap for the State of Alaska, and drove delivery of the initial MVP, a search tool used to indentify individual claimants by combining various data sources and de-duplicating them automatically.
