@@ -1,63 +1,53 @@
 ---
 name: gmail-digest
-description: Fetch and summarize Michael's Gmail messages from the last 24 hours and deliver the digest to chat. Use when asked to summarize emails, run the daily email digest, or check recent Gmail. Also used by the 9 AM daily cron job.
+description: Fetch and summarize Michael's Gmail messages from the last 24 hours and deliver the digest via email. Runs daily at 9 AM PDT via AWS Lambda.
 ---
 
 # Gmail Digest
 
-Fetches emails from the last 24 hours via Civic (Gmail tools) and delivers a clean summary to chat.
+Fetches emails from the last 24 hours via Gmail OAuth and delivers a formatted digest via email.
 
-## ⚠️ Policy
+**Status:** Running on AWS Lambda (automated, no manual intervention needed)
 
-Before any external action, follow the policy in:
-`/Users/michaeltorres/.openclaw/workspace/skills/morning-journal/references/civic-policy.md`
+## Credentials (Lambda)
 
-Key rules: summarize only — never quote verbatim in chat. Never send emails autonomously. Drafts require confirmation.
+**Gmail OAuth:** Set as Lambda environment variable `GMAIL_OAUTH_CONFIG`
+- Contains: `client_id`, `client_secret`, `refresh_token`
+- Auto-refreshes access tokens via OAuth 2.0
 
-## Credentials
-
-**Gmail OAuth:** `/Users/michaeltorres/.openclaw/workspace/secrets/gmail_oauth.json`
-- `client_id`, `client_secret`, `refresh_token`
-- Used by `fetch_digest.py`
-- Auto-refreshes access tokens
-
-**Email delivery:** `/Users/michaeltorres/.openclaw/secrets/email_config.json`
-- `smtp_server`, `smtp_port`, `sender_email`, `sender_password`
-- Used by `format_and_deliver.py` to send digest emails
-- Requires Gmail app password (not regular password)
+**Email delivery:** Uses AWS SES (Simple Email Service)
+- Lambda has IAM permissions to send via SES
+- Sends formatted HTML digests to `mtorres253@gmail.com`
 
 ## Workflow
 
-### Pipeline: OAuth → Fetch → Format → Deliver
+**Automated (Lambda):**
+1. EventBridge triggers at 9:00 AM PDT daily
+2. Lambda function `gmail_digest_lambda` runs
+3. Fetches emails from last 24 hours via Gmail OAuth
+4. Groups emails by category (Work, Job Alerts, Calendar, GitHub, Personal, Newsletters, Notifications, Transactional)
+5. Formats digest as HTML email
+6. Sends via AWS SES to `mtorres253@gmail.com`
+7. Completes and logs to CloudWatch
 
-1. **Fetch emails via Gmail OAuth** (`fetch_digest.py`):
-   - Uses OAuth 2.0 credentials from `~/.openclaw/workspace/secrets/gmail_oauth.json`
-   - Searches Gmail for messages from last 24 hours
-   - Returns JSON: `[{subject, from, date, snippet}, ...]`
-   - Takes ~20 seconds for 50 messages
+**Expected:** Digest email arrives in inbox at 9:00-9:05 AM PDT daily
 
-2. **Format and deliver digest** (`format_and_deliver.py`):
-   - Calls `fetch_digest.py` internally
-   - Groups emails by category (Work, Events, Job Alerts, Personal, Other)
-   - Formats as HTML email
-   - Sends via SMTP (Gmail, requires app password)
-   - **ALWAYS sends** (even if no emails, status included)
+## Manual Testing (Local)
 
-### Manual Run
+If you need to test locally:
 
 ```bash
-# Just fetch emails
-cd /Users/michaeltorres/.openclaw/workspace
-python3 skills/gmail-digest/scripts/fetch_digest.py
-
-# Fetch + format + deliver
-python3 skills/gmail-digest/scripts/format_and_deliver.py
+cd /Users/michaeltorres/.openclaw/workspace/skills/gmail-digest
+python3 scripts/fetch_digest.py       # Just fetch emails
+python3 scripts/format_and_deliver.py # Fetch + format + deliver via SMTP
 ```
+
+These require `gmail_oauth.json` and `email_config.json` locally configured.
 
 ## Notes
 
-- **Gmail OAuth:** Tokens auto-refresh. If you get 401 errors, regenerate credentials at myaccount.google.com/device-activity
-- **Email delivery:** Gmail requires "App Passwords" (not regular passwords). Create one at myaccount.google.com/apppasswords
-- **Lambda deployment:** Both `fetch_digest.py` and `format_and_deliver.py` support `/tmp` for temp files
-- **Privacy:** Never expose email content verbatim in public channels
-- **Categories:** Emails are grouped by Work, Events, Job Alerts, Personal, Other (see gmail-digest-config.json to customize)
+- **Gmail OAuth:** Tokens auto-refresh via refresh_token. If Lambda gets 401 errors, regenerate credentials and update `GMAIL_OAUTH_CONFIG` env var
+- **Email delivery:** Uses AWS SES (no app passwords needed)
+- **CloudWatch logs:** Check Lambda CloudWatch logs if digest doesn't arrive
+- **Categories:** Emails are grouped by Work, Job Alerts, Calendar, GitHub, Personal, Newsletters, Notifications, Transactional
+- **Privacy:** Email content is only sent to your inbox, not exposed publicly

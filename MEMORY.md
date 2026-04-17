@@ -49,38 +49,47 @@ Daily job search emails were showing the same 5 jobs every day instead of fresh 
 - `LINKEDIN_SETUP.md` — LinkedIn options (official API vs scraping)
 - `ANGELLIST_SETUP.md` — AngelList setup (API issues found)
 
-### Lambda Deployment & Gmail OAuth Setup (April 9, 2026)
+### Lambda Deployment & Architecture Finalized (April 17, 2026)
 
-**Status:** Successfully deployed job-search and gmail-digest to Lambda with Gmail OAuth credentials.
+**Status:** All three automation systems (job-search, gmail-digest, morning-journal) migrated to AWS Lambda.
 
 **What's Running:**
-- ✅ **Job-search Lambda** — EventBridge rule `job-search-daily` at 10 AM PDT (5 PM UTC)
-- ✅ **Gmail-digest Lambda** — EventBridge rule `gmail-digest-daily` at 9 AM PDT (4 PM UTC)  
-- ✅ **Morning-journal** — Local cron at 8 AM PDT
-- ❌ **Local gmail-digest cron** — Disabled (moved to Lambda)
+- ✅ **Morning-journal Lambda** — EventBridge rule at 8:00 AM PDT
+  - Sends daily reflection prompt email
+  - Uses AWS SES for delivery
+  
+- ✅ **Job-search Lambda** — EventBridge rule at 9:00 AM PDT  
+  - Uses JSearch API (OpenWeb Ninja) for job searches
+  - Covers 100+ job boards (LinkedIn, Indeed, ZipRecruiter, etc.)
+  - Deduplicates and ranks jobs
+  - Sends digest via AWS SES
+  
+- ✅ **Gmail-digest Lambda** — EventBridge rule at 9:00 AM PDT
+  - Fetches emails via Gmail OAuth 2.0
+  - Groups by category (Work, Job Alerts, Calendar, GitHub, Personal, Newsletters, Notifications, Transactional)
+  - Sends digest via AWS SES
 
-**Gmail OAuth Setup:**
-- Created new Web OAuth credentials in Google Cloud
-- Completed OAuth flow with refresh token
-- Saved credentials to `~/.openclaw/workspace/secrets/gmail_oauth.json`
-- Tested locally: `fetch_digest.py` works correctly
-- Packaged for Lambda: `gmail-digest-lambda.zip`
+**Local Cron Jobs:**
+- ❌ Morning-journal cron disabled (April 17)
+- ❌ All local cron jobs disabled — Lambda is sole execution engine
 
-**Issue to Investigate:**
-- Job-search Lambda did NOT run at 10 AM PDT on April 9, 2026
-- Need to check EventBridge rule status, Lambda logs, or error conditions
-- Gmail-digest Lambda: Not yet tested (scheduled for 9 AM tomorrow)
+**Credentials:**
+- ✅ `~/.openclaw/workspace/secrets/gmail_oauth.json` — Gmail OAuth (refresh token)
+- ✅ Lambda env vars: `GMAIL_OAUTH_CONFIG`, `JSEARCH_API_KEY`, `GMAIL_EMAIL`, `SES_EMAIL`
+- ✅ AWS IAM permissions: Lambda can invoke SES for email delivery
 
-**Files Updated:**
-- `skills/gmail-digest/scripts/fetch_digest.py` — Rewrote to use direct Gmail OAuth instead of Civic
-- `skills/job-search/scripts/search_jobs.py` — Added Lambda temp directory support
-- `skills/job-search/scripts/filter_and_deliver.py` — Added Lambda temp directory support
-- Created: `gmail-digest-lambda.zip` and `job-search-lambda.zip`
+**Documentation Updated (April 17):**
+- ✅ `ARCHITECTURE.md` — Explains manifest concept and Lambda vs Claude vs Cron
+- ✅ `skills/gmail-digest/SKILL.md` — Updated to reflect Gmail OAuth + Lambda (no Civic)
+- ✅ `skills/job-search/SKILL.md` — Updated to reflect JSearch API only, Lambda, 9 AM delivery
+- ✅ `skills/morning-journal/SKILL.md` — Updated to reflect Lambda email delivery, no S3 storage
 
-**Next Steps:**
-1. Debug why job-search Lambda didn't execute at 10 AM
-2. Verify gmail-digest Lambda runs at 9 AM tomorrow
-3. Check CloudWatch logs for both Lambda functions
+**System Architecture:**
+- All execution on AWS Lambda (no local cron dependencies)
+- EventBridge triggers scheduled jobs
+- AWS SES handles email delivery
+- CloudWatch logs available for debugging
+- SKILL.md files serve as documentation only (not execution manifests)
 
 ---
 

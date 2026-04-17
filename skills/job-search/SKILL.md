@@ -1,11 +1,13 @@
 ---
 name: job-search
-description: Automated job search across multiple platforms with filtering and learning. Searches LinkedIn, Indeed, Glassdoor, and other sources based on your criteria. Delivers curated results daily or on-demand.
+description: Automated job search via JSearch API with filtering and learning. Searches across LinkedIn, Indeed, ZipRecruiter, and other job boards. Delivers curated results daily at 9 AM PDT via email.
 ---
 
 # Job Search Skill
 
-Automates job hunting by searching multiple platforms, filtering by your preferences, and delivering curated results without the algorithm bias of paid placements.
+Automates job hunting by searching multiple job platforms via JSearch API, filtering by your preferences, and delivering curated results via email.
+
+**Status:** Running on AWS Lambda (automated, no manual intervention needed)
 
 ## Configuration
 
@@ -22,57 +24,37 @@ Edit `job-search-config.json` to set your search parameters:
       "salaryMax": 300000,
       "company": {
         "excludeNames": ["company-to-skip"],
-        "includeStage": ["Series A", "Series B", "Series C", "Mature"],
-        "preferredIndustries": ["AI/ML", "SaaS", "FinTech"]
+        "includeStage": ["Series C", "Late Stage", "Public"],
+        "preferredIndustries": ["Civic Tech", "Gov Tech", "Transportation"]
       },
       "recency": "7days"
     }
   ],
-  "sources": {
-    "linkedin": true,
-    "indeed": true,
-    "glassdoor": true,
-    "angellist": true,
-    "ycombinator": true,
-    "techcrunch": false,
-    "customRSS": []
-  },
   "deliveryMode": "digest",
-  "deliverySchedule": "daily",
-  "deliveryTime": "09:00"
+  "deliveryTime": "10:00"
 }
 ```
 
-## Workflow
+## Workflow (Lambda Automated)
 
-### 1. Search
+**EventBridge triggers at 9:00 AM PDT daily:**
 
-Run job searches across configured sources (Indeed, AngelList, Y Combinator):
+1. **Search via JSearch API** (`search_jobs.py` equivalent in Lambda):
+   - Queries JSearch API (OpenWeb Ninja's unified job board aggregator)
+   - Covers: LinkedIn, Indeed, ZipRecruiter, and 100+ other job boards
+   - Applies filters (salary, location, company stage, keywords)
+   - De-duplicates across platforms
+   - Saves raw results
 
-```bash
-cd /Users/michaeltorres/.openclaw/workspace/skills/job-search
-python3 scripts/search_jobs.py
-```
+2. **Filter, Rank & Email** (`filter_and_deliver.py` equivalent in Lambda):
+   - Calculates relevance score (0-100%) based on your criteria
+   - Tracks previously sent jobs (deduplication via `sent-jobs.json`)
+   - Groups by title category
+   - Formats as HTML email with direct apply links
+   - Sends via AWS SES to `mtorres253@gmail.com`
+   - Removes old postings (jobs not seen in 3 days)
 
-- Queries Indeed, AngelList, and Y Combinator Jobs
-- Applies filters (salary, location, company stage, keywords)
-- De-duplicates across platforms
-- Saves raw results as JSON in `results/`
-
-### 2. Filter, Rank & Email
-
-Apply learning-based filtering and send email digest:
-
-```bash
-python3 scripts/filter_and_deliver.py
-```
-
-- Calculates relevance score (0-100%) based on your criteria
-- Compares against past interactions (applied, rejected jobs)
-- Groups by title category
-- Formats as HTML email with direct apply links
-- Sends via Gmail (or configured SMTP)
-- Saves filtered results for history
+**Expected:** Job digest email arrives in inbox at 9:00-9:05 AM PDT daily
 
 ### Professional Materials
 
@@ -86,13 +68,15 @@ When applying to jobs, the skill can reference these files to:
 - Extract relevant experience for custom applications
 - Maintain consistency across all applications
 
-## Email Setup
+## Credentials (Lambda)
 
-Before running, configure email delivery:
+**JSearch API:** Set as Lambda environment variable `JSEARCH_API_KEY`
+- Provided by OpenWeb Ninja via RapidAPI
+- Covers 100+ job boards including LinkedIn, Indeed, ZipRecruiter
 
-1. Read `references/EMAIL_SETUP.md` for Gmail/SMTP configuration
-2. Create `~/.openclaw/secrets/email_config.json` with credentials
-3. Update `emailTo` field in `job-search-config.json`
+**Email delivery:** Uses AWS SES (Simple Email Service)
+- Lambda has IAM permissions to send via SES
+- Sends formatted HTML digests to `mtorres253@gmail.com`
 
 ## Learning System
 
@@ -119,24 +103,17 @@ Stored in `job-interactions.json`:
 }
 ```
 
-## Scheduling
+## Manual Testing (Local)
 
-### On-Demand
+If you need to test locally:
 
 ```bash
-openclaw run job-search
+cd /Users/michaeltorres/.openclaw/workspace/skills/job-search
+python3 scripts/search_jobs.py       # Search for jobs
+python3 scripts/filter_and_deliver.py # Filter + deliver via SMTP
 ```
 
-### Daily Digest (Cron)
-
-Set up a daily job in your cron config to run at 9 AM:
-
-```json
-{
-  "schedule": { "kind": "cron", "expr": "0 9 * * *", "tz": "America/Los_Angeles" },
-  "payload": { "kind": "agentTurn", "message": "Run job search and deliver digest" }
-}
-```
+Requires `job-search-config.json` and `email_config.json` locally configured.
 
 ## Data & Privacy
 
@@ -144,29 +121,21 @@ Set up a daily job in your cron config to run at 9 AM:
 - **Never shared:** Your criteria, preferences, and interaction history stay private
 - **History:** Keeps last 30 days of searches for trend analysis
 
-## Limitations & To-Do
+## Data & Privacy
 
-- [x] Y Combinator Jobs RSS parsing
-- [x] AngelList API integration
-- [x] Indeed scraping (via BeautifulSoup, rate-limited)
-- [x] Email delivery (Gmail/SMTP)
-- [ ] LinkedIn scraping requires auth (LinkedIn API not currently available)
-- [ ] Glassdoor: Limited scraping due to bot detection; may add later
-- [ ] Expand to other job boards (Greenhouse, Workable, custom job sites)
-- [ ] Learning system: Track user interactions (applied, saved, rejected) to improve scores
-- [ ] Custom job board support (add your own RSS feeds)
-- [ ] Slack/Discord delivery option (alternative to email)
+- **Stored:** `job-search-config.json`, `job-interactions.json`, `sent-jobs.json`, `results/` (local only, not in Lambda)
+- **Never shared:** Your criteria, preferences, and interaction history stay private
+- **History:** Keeps tracking of sent jobs to prevent duplicates
+- **Cleanup:** Jobs disappear from listings automatically after 3 days of no posts
 
-## Files
+## Notes
 
-- `SKILL.md` — This file
-- `job-search-config.json` — Your search configuration
-- `job-interactions.json` — Learning history (auto-generated)
-- `scripts/search_jobs.py` — Multi-source search
-- `scripts/filter_jobs.py` — Filtering & ranking
-- `scripts/deliver_digest.py` — Digest generation
-- `results/` — Raw and filtered results (timestamped)
+- **JSearch API:** Covers 100+ job boards; rate-limited by RapidAPI
+- **CloudWatch logs:** Check Lambda CloudWatch logs if digest doesn't arrive
+- **Deduplication:** Tracks sent jobs across days to prevent sending the same job multiple times
+- **Job removal:** Postings older than 3 days are automatically removed from tracking
 
 ---
 
-_This skill is a work in progress. Feedback and feature requests welcome._
+**Schedule:** Daily at 9:00 AM PDT (via EventBridge + Lambda)  
+**Last updated:** April 17, 2026
