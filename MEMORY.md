@@ -163,8 +163,78 @@ All capabilities from request included and deduplicated:
 - **Company Stage:** Series C+, Late Stage, Public
 - **Email:** mtorres253@gmail.com
 
+## LLM Migration to Groq (April 20, 2026)
+
+**Status:** ✅ Complete
+
+**What Changed:**
+- Default OpenClaw model switched from `anthropic/claude-haiku-4-5` → `groq/mixtral-8x7b-32768`
+- Added Groq API key to `~/.openclaw/openclaw.json` under `auth.profiles`
+- Claude models still available as fallback (`anthropic/claude-sonnet-4-6`)
+
+**Models Now Available:**
+1. **Groq Mixtral 8x7B** (default) — Fast, good reasoning, free tier includes 25K tokens/day
+2. **Groq Llama 2 70B** — Larger, slower but more capable
+3. **Claude Sonnet** (override when needed) — Still available for complex tasks
+
+**Cost Impact:**
+- Free tier: 25K tokens/day (covers typical daily agent runs)
+- Paid: ~$0.15/1M tokens (vs Claude ~$3/1M tokens)
+- Expected savings: 95%+ reduction in LLM costs
+
+**Why Lambda Skills Unaffected:**
+- job-search: Uses JSearch API (no LLM)
+- gmail-digest: Uses Gmail API (no LLM)
+- morning-journal: Uses Google Docs API (no LLM)
+- None of the Lambda skills use Claude or any LLM
+
+**Configuration:**
+- Updated `~/.openclaw/openclaw.json`
+- Groq API key stored securely in auth profiles
+- No changes needed to Lambda functions
+
+---
+
+## Job Search: LLM-Based Scoring (April 21, 2026)
+
+**Status:** ✅ Implemented and tested
+
+**What's New:**
+- Jobs are now scored 0-10 by Claude based on your profile (resumes.md)
+- Featured section shows top matches (7+/10) first, with LLM reasoning
+- All jobs ranked below, sorted by match score
+- Scoring factors: title level (Director/VP/Principal), skills/experience match, location (SF/remote preferred, Bay Area acceptable, hybrid lower, in-office non-Bay lowest)
+
+**How It Works:**
+1. Lambda searches for jobs (9 AM PDT)
+2. Loads your resumes.md profile
+3. Claude scores each job intelligently
+4. Featured section (7+) appears first in email with explanations
+5. Full ranked list below (top 15 shown)
+
+**Email Layout Changes:**
+- **Before:** Simple list of jobs by category
+- **After:** 
+  - Featured section with gold badges (⭐ 7+/10)
+  - "Why:" explanation for each featured job (Claude's reasoning)
+  - Full ranked list below (sorted by score)
+
+**Files Modified:**
+- `skills/job-search/scripts/filter_and_deliver.py` — Added LLM scoring
+- Created `skills/job-search/LLM_SCORING.md` — Documentation
+
+**Dependencies Added:**
+- `anthropic` Python package (installed in venv)
+
+**Ready for First Run:**
+- Lambda deployment unchanged
+- API key will be set in Lambda env vars (ANTHROPIC_API_KEY)
+- Fallback scoring available if Claude unavailable
+- Next 9 AM delivery will use new scoring system
+
 ---
 
 ## Important Dates
 - **Job Search Skill Fixed:** April 8, 2026
 - **LinkedIn Setup Started:** April 8, 2026 (pending)
+- **LLM-Based Scoring Implemented:** April 21, 2026

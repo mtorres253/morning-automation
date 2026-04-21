@@ -2,16 +2,24 @@
 """
 Filter jobs and deliver via email digest.
 Reads raw job search results, applies filtering/ranking, and sends email.
+Uses LLM-based scoring to match jobs against candidate profile.
 """
 
 import json
 import os
 import smtplib
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+try:
+    import anthropic
+    HAS_ANTHROPIC = True
+except ImportError:
+    HAS_ANTHROPIC = False
 
 CONFIG_PATH = Path(__file__).parent.parent / "job-search-config.json"
 INTERACTIONS_PATH = Path(__file__).parent.parent / "job-interactions.json"
@@ -87,59 +95,155 @@ def filter_to_new_jobs(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     
     return shown_jobs
 
-def calculate_relevance_score(job: Dict[str, Any]) -> float:
+def load_candidate_profile() -> str:
     """
-    Calculate a relevance score (0-1) based on job attributes and interaction history.
+    Load the candidate's resume/profile from resumes.md.
+    Falls back to a default profile if not found.
     """
-    score = 0.5  # Base score
+    # Try workspace first, then home
+    resume_path = Path.home() / ".openclaw" / "workspace" / "assets" / "job-search" / "resumes.md"
+    if not resume_path.exists():
+        resume_path = Path.home() / ".openclaw" / "assets" / "job-search" / "resumes.md"
     
-    search_params = config["searches"][0]
+    if resume_path.exists():
+        with open(resume_path, "r") as f:
+            return f.read()
+    else:
+        # Default profile for fallback
+        return """
+        Product leader with 12+ years building mission-critical digital platforms 
+        supporting complex service delivery across aviation, government, and enterprise environments.
+        Expertise in strategic leadership, product operations, compliance-driven development,
+        and cross-functional team leadership.
+        """
+
+def score_job_with_llm(job: Dict[str, Any], candidate_profile: str) -> Tuple[float, str]:
+    """
+    Use Claude to intelligently score a job against the candidate profile.
+    Returns (score: 0-10, reasoning: brief explanation).
     
-    # Title match bonus
+    Scoring factors:
+    - Title match (Director/VP/Principal preferred)
+    - Skills/experience alignment
+    - Location (SF/remote highest, Bay Area middle, hybrid lower, in-office non-SF lowest)
+    """
+    if not HAS_ANTHROPIC:
+        # Fallback to simple scoring if Anthropic not available
+        return fallback_simple_score(job, candidate_profile), "Simple scoring (Claude unavailable)"
+    
+    try:
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        
+        prompt = f"""
+You are an expert recruiter matching job opportunities to a candidate's profile.
+
+CANDIDATE PROFILE:
+{candidate_profile}
+
+JOB OPPORTUNITY:
+Title: {job.get('title', 'Unknown')}
+Company: {job.get('company', 'Unknown')}
+Location: {job.get('location', 'Unknown')}
+Salary: {job.get('salary', 'Not specified')}
+Job Description: {job.get('snippet', 'No description available')[:500]}
+
+SCORING INSTRUCTIONS:
+Rate this job fit on a scale of 0-10 based on:
+1. Title Match (Director/VP/Principal preferred): Does the title align with the candidate's level?
+2. Skills & Experience: How well do the job requirements match the candidate's experience?
+3. Location Preference: 
+   - SF proper or Remote = highest preference
+   - Bay Area (non-SF) = acceptable but lower
+   - Hybrid = lower than remote
+   - In-office non-Bay Area = lowest preference
+
+Be realistic and honest. A score of 7+ means this is a strong match worth featuring.
+
+Respond with ONLY:
+SCORE: <number 0-10>
+REASONING: <one sentence explaining the score>
+
+Example:
+SCORE: 8
+REASONING: Director-level product role at AI-focused startup in SF with strong product/strategy background match.
+"""
+        
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=100,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        text = response.content[0].text.strip()
+        
+        # Parse response
+        score_match = re.search(r'SCORE:\s*(\d+(?:\.\d+)?)', text)
+        reasoning_match = re.search(r'REASONING:\s*(.+?)(?:\n|$)', text)
+        
+        score = float(score_match.group(1)) if score_match else 5.0
+        reasoning = reasoning_match.group(1).strip() if reasoning_match else "No reasoning provided"
+        
+        return min(max(score, 0), 10), reasoning
+    
+    except Exception as e:
+        print(f"⚠️  LLM scoring failed ({e}), using fallback")
+        return fallback_simple_score(job, candidate_profile), "Fallback scoring"
+
+def fallback_simple_score(job: Dict[str, Any], candidate_profile: str) -> float:
+    """
+    Simple rule-based scoring when LLM is unavailable.
+    """
+    score = 5.0  # Base score
+    
+    # Title match
     title_lower = job.get("title", "").lower()
-    for kw in search_params["keywords"]:
-        if kw.lower() in title_lower:
-            score += 0.15
+    if any(x in title_lower for x in ["director", "vp", "vice president", "principal"]):
+        score += 2.0
     
-    # Salary match bonus
+    # Location preference
+    location_lower = job.get("location", "").lower()
+    if "san francisco" in location_lower or "sf" in location_lower:
+        score += 1.5
+    elif "remote" in location_lower:
+        score += 1.5
+    elif "bay area" in location_lower or "oakland" in location_lower or "palo alto" in location_lower:
+        score += 1.0
+    elif "hybrid" in location_lower:
+        score += 0.5
+    
+    # Salary check (200-250K range preferred)
     salary_text = job.get("salary", "").lower()
     if any(str(n) in salary_text for n in range(200, 251)):
-        score += 0.2
+        score += 1.0
     
-    # Remote/Hybrid bonus
-    if any(arr in job.get("location", "").lower() for arr in ["remote", "hybrid"]):
-        score += 0.15
-    
-    # Industry/location bonus (rough check on description)
-    snippet = job.get("snippet", "").lower()
-    for industry in search_params["company"]["industries"]:
-        if industry.lower() in snippet or industry.lower() in job.get("company", "").lower():
-            score += 0.1
-    
-    # Learning signal: penalize if previously rejected
-    job_id = job.get("jobId", "")
-    if job_id in interactions.get("jobs", {}):
-        interaction = interactions["jobs"][job_id]
-        if interaction.get("action") == "rejected":
-            score *= 0.3
-        elif interaction.get("action") == "applied":
-            score *= 1.2  # Slight boost for similar jobs after applying
-    
-    return min(score, 1.0)  # Cap at 1.0
+    return min(max(score, 0), 10)
 
-def filter_and_rank_jobs(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Filter and rank jobs by relevance."""
-    # Calculate scores
-    for job in jobs:
-        job["relevanceScore"] = calculate_relevance_score(job)
+def filter_and_rank_jobs(jobs: List[Dict[str, Any]], candidate_profile: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Filter and rank jobs using LLM-based scoring.
+    Returns (featured_jobs: 7+/10, full_ranked_jobs: all jobs ranked by score).
+    """
+    print(f"📊 Scoring {len(jobs)} jobs with LLM...")
     
-    # Filter: minimum score threshold
-    filtered = [j for j in jobs if j["relevanceScore"] >= 0.4]
+    # Calculate scores for all jobs
+    for i, job in enumerate(jobs, 1):
+        score, reasoning = score_job_with_llm(job, candidate_profile)
+        job["score"] = score
+        job["scoreReasoning"] = reasoning
+        print(f"  [{i}/{len(jobs)}] {job.get('title', 'Unknown')[:40]:40s} → {score}/10")
     
-    # Sort by score (descending)
-    ranked = sorted(filtered, key=lambda j: j["relevanceScore"], reverse=True)
+    # Sort all jobs by score (descending)
+    ranked_all = sorted(jobs, key=lambda j: j["score"], reverse=True)
     
-    return ranked
+    # Separate featured jobs (7+)
+    featured = [j for j in ranked_all if j["score"] >= 7.0]
+    
+    print(f"\n✅ Featured ({len(featured)}): {[j.get('title', '')[:30] for j in featured]}")
+    print(f"📋 Full list ({len(ranked_all)} total)\n")
+    
+    return featured, ranked_all
 
 def group_jobs_by_category(jobs: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     """Group jobs by title category."""
@@ -167,8 +271,8 @@ def group_jobs_by_category(jobs: List[Dict[str, Any]]) -> Dict[str, List[Dict[st
     # Remove empty groups
     return {k: v for k, v in groups.items() if v}
 
-def format_email_body(jobs: List[Dict[str, Any]], search_status: List[str] = None) -> str:
-    """Format jobs into an HTML email body."""
+def format_email_body(featured_jobs: List[Dict[str, Any]], all_jobs: List[Dict[str, Any]], search_status: List[str] = None) -> str:
+    """Format jobs into an HTML email body with featured section first."""
     
     # Build search status section (always shown)
     status_html = ""
@@ -192,38 +296,90 @@ def format_email_body(jobs: List[Dict[str, Any]], search_status: List[str] = Non
             """
         status_html += "</div>"
     
-    # Build job listings section (or "no jobs" message)
-    jobs_html = ""
-    if jobs:
-        grouped = group_jobs_by_category(jobs)
-        for category, category_jobs in grouped.items():
-            jobs_html += f"""
-            <div class="category">
-                <div class="category-title">{category} ({len(category_jobs)})</div>
-            """
-            
-            for job in category_jobs[:5]:  # Limit to top 5 per category
-                score_pct = int(job["relevanceScore"] * 100)
-                jobs_html += f"""
-                <div class="job">
-                    <div class="job-title">{job.get('title', 'Unknown Position')}</div>
-                    <div class="job-company">{job.get('company', 'Unknown Company')}</div>
-                    <div class="job-details">
-                        📍 {job.get('location', 'Not specified')} | 
-                        💰 {job.get('salary', 'Not specified')} | 
-                        📊 <span class="score">Match: {score_pct}%</span>
-                    </div>
-                    <div class="job-details">
-                        Source: {job.get('source', 'unknown').title()}
-                    </div>
-                    <div class="job-snippet">{job.get('snippet', 'No description available')[:150]}...</div>
-                    <div class="apply-link">
-                        <a href="{job.get('url', '#')}">View Job →</a>
-                    </div>
+    # Build featured section (7+/10)
+    featured_html = ""
+    if featured_jobs:
+        featured_html = """
+        <div class="featured-section">
+            <h2 style="color: #d4af37; margin-bottom: 15px; border-bottom: 3px solid #d4af37; padding-bottom: 10px;">
+                ⭐ Featured Matches ({})
+            </h2>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Top matches (7+/10) personalized to your profile
+            </p>
+        """.format(len(featured_jobs))
+        
+        for job in featured_jobs:
+            score = job.get("score", 0)
+            reasoning = job.get("scoreReasoning", "")
+            featured_html += f"""
+            <div class="featured-job">
+                <div class="job-title">{job.get('title', 'Unknown Position')}</div>
+                <div class="job-company">{job.get('company', 'Unknown Company')}</div>
+                <div class="job-details">
+                    📍 {job.get('location', 'Not specified')} | 
+                    💰 {job.get('salary', 'Not specified')} | 
+                    ⭐ <span class="featured-score">{score:.1f}/10</span>
                 </div>
-                """
+                <div class="job-details" style="color: #0066cc; font-size: 13px; font-style: italic;">
+                    Why: {reasoning}
+                </div>
+                <div class="job-details">
+                    Source: {job.get('source', 'unknown').title()}
+                </div>
+                <div class="job-snippet">{job.get('snippet', 'No description available')[:150]}...</div>
+                <div class="apply-link">
+                    <a href="{job.get('url', '#')}" class="featured-link">View Job →</a>
+                </div>
+            </div>
+            """
+        
+        featured_html += "</div>"
+    
+    # Build full jobs list section
+    jobs_html = ""
+    if all_jobs:
+        jobs_html = """
+        <div class="all-jobs-section">
+            <h2 style="color: #2c5aa0; margin-top: 40px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 10px;">
+                📋 All Matches ({})
+            </h2>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Complete ranked list (sorted by score)
+            </p>
+        """.format(len(all_jobs))
+        
+        for i, job in enumerate(all_jobs[:15], 1):  # Show top 15 in full list
+            score = job.get("score", 0)
+            is_featured = score >= 7.0
+            featured_badge = " ⭐" if is_featured else ""
             
-            jobs_html += "</div>"
+            jobs_html += f"""
+            <div class="all-job" style="opacity: {'1.0' if not is_featured else '1.0'};">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <div class="job-title">{job.get('title', 'Unknown Position')}</div>
+                    <span class="score-badge">{score:.1f}/10{featured_badge}</span>
+                </div>
+                <div class="job-company">{job.get('company', 'Unknown Company')}</div>
+                <div class="job-details">
+                    📍 {job.get('location', 'Not specified')} | 
+                    💰 {job.get('salary', 'Not specified')}
+                </div>
+                <div class="job-snippet">{job.get('snippet', 'No description available')[:120]}...</div>
+                <div class="apply-link">
+                    <a href="{job.get('url', '#')}">View Job →</a>
+                </div>
+            </div>
+            """
+        
+        if len(all_jobs) > 15:
+            jobs_html += f"""
+            <div style="text-align: center; color: #999; font-size: 13px; margin-top: 20px;">
+                ... and {len(all_jobs) - 15} more jobs
+            </div>
+            """
+        
+        jobs_html += "</div>"
     else:
         jobs_html = """
         <div class="no-jobs-message">
@@ -243,15 +399,19 @@ def format_email_body(jobs: List[Dict[str, Any]], search_status: List[str] = Non
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
             .header {{ background-color: #f0f0f0; padding: 20px; margin-bottom: 20px; }}
             .search-status {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; }}
+            .featured-section {{ background-color: #fffbf0; border-left: 5px solid #d4af37; padding: 20px; margin-bottom: 30px; border-radius: 4px; }}
+            .featured-job {{ background-color: #fff; border: 2px solid #d4af37; border-left: 5px solid #d4af37; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(212, 175, 55, 0.1); }}
+            .featured-score {{ background-color: #ffd700; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; color: #333; }}
+            .featured-link {{ color: #d4af37; text-decoration: none; font-weight: bold; }}
+            .featured-link:hover {{ text-decoration: underline; }}
+            .all-jobs-section {{ margin-top: 30px; }}
+            .all-job {{ background-color: #f9f9f9; border-left: 3px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 3px; }}
+            .score-badge {{ background-color: #e8f4f8; padding: 3px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; color: #0066cc; }}
             .no-jobs-message {{ background-color: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-            .category {{ margin-bottom: 30px; }}
-            .category-title {{ font-size: 18px; font-weight: bold; color: #2c5aa0; margin-bottom: 10px; border-bottom: 2px solid #2c5aa0; padding-bottom: 5px; }}
-            .job {{ background-color: #f9f9f9; border-left: 4px solid #2c5aa0; padding: 15px; margin-bottom: 15px; }}
             .job-title {{ font-size: 16px; font-weight: bold; color: #000; }}
             .job-company {{ color: #555; font-weight: 500; }}
             .job-details {{ color: #666; font-size: 14px; margin: 8px 0; }}
             .job-snippet {{ color: #777; font-size: 13px; margin: 10px 0; font-style: italic; }}
-            .score {{ background-color: #e8f4f8; padding: 2px 8px; border-radius: 3px; font-size: 12px; }}
             .apply-link {{ margin-top: 10px; }}
             .apply-link a {{ color: #2c5aa0; text-decoration: none; font-weight: bold; }}
             .apply-link a:hover {{ text-decoration: underline; }}
@@ -328,6 +488,10 @@ def send_email(subject: str, html_body: str, to_email: str):
 
 def main():
     try:
+        # Load candidate profile
+        candidate_profile = load_candidate_profile()
+        print("📄 Loaded candidate profile from resumes.md\n")
+        
         # Load and filter results
         raw_results = load_latest_results()
         jobs = raw_results.get("jobs", [])
@@ -340,24 +504,26 @@ def main():
         print("Search Status:")
         for status in search_status:
             print(f"  {status}")
+        print()
         
-        filtered_jobs = []
+        featured_jobs = []
+        all_jobs = []
         
         # If we have real jobs, filter to only NEW jobs (not sent before)
         if real_jobs:
             new_jobs = filter_to_new_jobs(real_jobs)
-            print(f"📋 {len(new_jobs)} new jobs (out of {len(real_jobs)} total)")
+            print(f"📋 {len(new_jobs)} new jobs (out of {len(real_jobs)} total)\n")
             
             if new_jobs:
-                filtered_jobs = filter_and_rank_jobs(new_jobs)
-                print(f"✓ {len(filtered_jobs)} jobs passed filter")
+                featured_jobs, all_jobs = filter_and_rank_jobs(new_jobs, candidate_profile)
+                print(f"✓ Scoring complete")
             else:
                 print("✓ All jobs already sent in previous digests. No new jobs today.")
         else:
             print("ℹ️  No real job search results found.")
         
         # ALWAYS send email (with jobs if found, or status/message if not)
-        html_body = format_email_body(filtered_jobs, search_status)
+        html_body = format_email_body(featured_jobs, all_jobs, search_status)
         subject = f"🔍 Daily Job Search Digest — {datetime.now().strftime('%A, %B %d')}"
         
         # Get email recipient from config or default
@@ -365,8 +531,8 @@ def main():
         
         if send_email(subject, html_body, to_email):
             print(f"✓ Digest delivered to {to_email}")
-            if filtered_jobs:
-                print(f"  → {len(filtered_jobs)} jobs included")
+            if featured_jobs or all_jobs:
+                print(f"  → {len(featured_jobs)} featured jobs + {len(all_jobs) - len(featured_jobs)} additional jobs")
             else:
                 print(f"  → Status report sent (no jobs found)")
         
@@ -382,14 +548,17 @@ def main():
         with open(output_file, "w") as f:
             json.dump({
                 "filteredAt": datetime.utcnow().isoformat(),
-                "totalMatched": len(filtered_jobs),
-                "jobs": filtered_jobs
+                "featured": len(featured_jobs),
+                "total": len(all_jobs),
+                "jobs": all_jobs
             }, f, indent=2)
         
         print(f"📁 Saved filtered results to: {output_file}")
     
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
