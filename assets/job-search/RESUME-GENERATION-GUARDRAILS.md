@@ -78,7 +78,7 @@ When creating a resume draft:
 ```
 1. Read full resumes.md and job description
 2. Select optimal structure:
-   - Name, contact, summary, skills, jobs (reverse chrono), education, certs
+   - Name, contact, summary, skills, jobs (REVERSE CHRONOLOGICAL: most recent first)
    - Max bullets per job? (default: 7)
    - Any special sections requested?
 3. Preserve ALL original content word-for-word
@@ -86,6 +86,21 @@ When creating a resume draft:
 5. Quality check: No rewriting, no paraphrasing, no changes
 6. Deliver draft
 ```
+
+## Work History Ordering
+
+**ALWAYS display work history in reverse chronological order (most recent first):**
+- Most recent position at top
+- Progressively older positions below
+- Dates clearly visible for quick scanning
+
+Example order (if Michael were applying today in April 2026):
+1. Acubed Product Innovation Director (March 2024 – February 2026) — MOST RECENT
+2. Acubed Director of Product Management (June 2019 – March 2024)
+3. 18F Director (September 2015 – October 2018)
+4. Truss Head of Product Practice (October 2018 – June 2019)
+5. YOU Technology Director of Product (April 2013 – September 2015)
+6. SocialChorus Director of Product (March 2011 – April 2013) — OLDEST
 
 ---
 
